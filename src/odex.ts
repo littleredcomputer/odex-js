@@ -1,11 +1,20 @@
 /**
- * An implementation of ODEX, by E. Hairer and G. Wanner,
- * ported from the Fortran ODEX.F. It carries the same
- * license.
+ * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
+ * The original work carries the BSD 2-clause license, and so does this.
  *
+ * Copyright (c) 2016 Colin Smith.
+ * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+ * disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+ * following disclaimer in the documentation and/or other materials provided with the distribution.
  *
- *
- *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 interface Function {  // Function computing the value of Y' = F(x,Y)
@@ -676,13 +685,9 @@ export class Solver {
                         }
                         kc = k+1;
                         midex(kc);
-                        if (atov) {
-                            state = STATE.START;
-                        } else if (err > 1) {
-                            state = STATE.REJECT;
-                        } else {
-                            state = STATE.ACCEPT;
-                        }
+                        if (atov) state = STATE.START;
+                        else if (err > 1) state = STATE.REJECT;
+                        else state = STATE.ACCEPT;
                         continue;
 
                     case STATE.ACCEPT:
