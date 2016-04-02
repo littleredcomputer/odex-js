@@ -1,0 +1,572 @@
+/**
+ * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
+ * 
+ * Copyright (c) 2016 Colin Smith.
+ * 
+ */
+
+interface Function {  // Function computing the value of Y' = F(x,Y)
+    (x:  number,      // input x value
+     y:  number[],    // input Y values (Array of length n)
+     yp: number[]);   // output Y' values (Array of length n)
+}
+
+interface OutputFunction {
+    (nr: number, xold: number, x: number, y: number[]);
+}
+
+export class Solver {
+    n: number; // dimension of the system
+    uRound: number;                     // WORK(1), machine epsilon
+    maxSteps: number;                   // IWORK(1), positive integer
+    initialStepSize: number;            // H
+    maxStepSize: number;                // WORK(2), maximal step size, default xEnd - x
+    maxExtrapolationColumns: number;    // IWORK(2), KM, positive integer
+    stepSizeSequence: number;           // IWORK(3), in [1..5]
+    stabilityCheckCount: number;        // IWORK(4), in
+    stabilityCheckTableLines: number;   // IWORK(5), positive integer
+    denseOutput: boolean;               // IOUT >= 2, true means dense output interpolator provided to solOut
+    denseOutputErrorEstimator: boolean; // IWORK(6), reversed sense from the FORTRAN code
+    denseComponents: number[];          // IWORK(8) & IWORK(21,...), components for which dense output is required
+    interpolationFormulaDegree: number; // IWORK(7), µ = 2 * k - interpolationFormulaDegree + 1 [1..6], default 4
+    stepSizeReductionFactor: number;    // WORK(3), default 0.5
+    stepSizeFac1: number;               // WORK(4)
+    stepSizeFac2: number;               // WORK(5)
+    stepSizeFac3: number;               // WORK(6)
+    stepSizeFac4: number;               // WORK(7)
+    stepSafetyFactor1: number;          // WORK(8)
+    stepSafetyFactor2: number;          // WORK(9)
+    relativeTolerance: number|number[]; // RTOL. Can be a scalar or vector of length N.
+    absoluteTolerance: number|number[]; // ATOL. Can be a scalar or vector of length N.
+
+    constructor(n: number) {
+        this.n = n;
+        this.uRound = 2.3e-16;
+        this.maxSteps = 10000;
+        this.initialStepSize = 1e-4;
+        this.maxStepSize = 0;
+        this.maxExtrapolationColumns = 9;
+        this.stepSizeSequence = 0;
+        this.stabilityCheckCount = 1;
+        this.stabilityCheckTableLines = 2;
+        this.denseOutput = false;
+        this.denseOutputErrorEstimator = true;
+        this.denseComponents = undefined;
+        this.interpolationFormulaDegree = 4;
+        this.stepSizeReductionFactor = 0.5;
+        this.stepSizeFac1 = 0.02;
+        this.stepSizeFac2 = 4.0;
+        this.stepSizeFac3 = 0.8;
+        this.stepSizeFac4 = 0.9;
+        this.stepSafetyFactor1 = 0.65;
+        this.stepSafetyFactor2 = 0.94;
+        this.relativeTolerance = 1e-5;
+        this.absoluteTolerance = 1e-5;
+    }
+
+    static make2d(r: number, c: number): number[][] {
+        // Make a 2D array, with r rows and c columns. The initial values are undefined.
+        var a = new Array(r);
+        for (var i = 0; i < r; ++i) a[i] = new Array(c);
+        return a;
+    }
+
+    // Generate step size sequence and return as an array of length n.
+    static stepSizeSequence(nSeq: number, n: number): number[] {
+        const a = new Array(n);
+        switch (nSeq) {
+            case 1: for (var i = 0; i < n; ++i) a[i] = 2*(i+1); break;
+            case 2: a[0] = 2; for (i = 1; i < n; ++i) a[i] = 4*(i+1)-4; break;
+            case 3: a[0] = 2; a[1] = 4; a[2] = 6; for (i = 3; i < n; ++i) a[i] = 2*a[i-2]; break;
+            case 4: for (i = 0; i < n; ++i) a[i] = 4*(i+1)-2; break;
+            case 5: for (i = 0; i < n; ++i) a[i] = 4*(i+1); break;
+            default: throw new Error("invalid stepSizeSequence selected");
+        }
+        return a;
+    }
+
+    solve(f: Function,
+          x: number,
+          y: number[],
+          xEnd: number,
+          solOut?: OutputFunction) {
+        // Make a copy of y. We leave the user's parameters alone so that they may be reused if desired.
+        var y = y.slice();
+        var dz = new Array(this.n);
+        var yh1 = new Array(this.n);
+        var yh2 = new Array(this.n);
+        if (this.maxSteps <= 0) throw new Error("maxSteps must be positive");
+        const km = this.maxExtrapolationColumns;
+        if (km <= 2) throw "maxExtrapolationColumns must be > 2";
+        const nSeq = this.stepSizeSequence || (this.denseOutput ? 4 : 1);
+        if (nSeq <= 3 && this.denseOutput) throw new Error("stepSizeSequence incompatible with denseOutput");
+        if (this.denseOutput && !solOut) throw new Error("denseOutput requires a solution observer function");
+        const mStab = this.stabilityCheckCount;
+        const jStab = this.stabilityCheckTableLines;
+        const mudIf = this.interpolationFormulaDegree;
+        if (mudIf <= 0 || mudIf >= 7) throw "bad interpolationFormulaDegree";
+        var denseComponents = this.denseComponents;
+        if (!denseComponents && this.denseOutput) {
+            denseComponents = new Array(this.n);
+            for (var i = 0; i < this.n; ++i) {
+                denseComponents[i] = i;
+            }
+        } else if (!denseComponents) {
+            denseComponents = [];
+        }
+        for (var i = 0; i < denseComponents.length; ++i) {
+            if (denseComponents[i] < 0 || denseComponents[i] >= this.n) {
+                throw "invalid denseComponents array";
+            }
+        }
+        const uRound = this.uRound;
+        if (uRound <= 1e-35 || uRound > 1) throw "suspicious value of uRound";
+        const hMax = Math.abs(this.maxStepSize || xEnd - x) ;
+        const safe3 = this.stepSizeReductionFactor;
+        const fac4 = this.stepSizeFac4;
+        const safe1 = this.stepSafetyFactor1;
+        const safe2 = this.stepSafetyFactor2;
+        const lfSafe = 2 * km * km + km;
+
+        function expandToArray(x: number|number[], n: number): number[] {
+            // If x is an array, return a copy of it. If x is a number, return a new array
+            // consisting of n copies of the number.
+            if (x instanceof Array) {
+                return x.slice();
+            } else {
+                var tolArray = [];
+                for (i = 0; i < n; ++i) tolArray.push(x);
+                return tolArray;
+            }
+        }
+        var aTol = expandToArray(this.absoluteTolerance, this.n);
+        var rTol = expandToArray(this.relativeTolerance, this.n);
+        var nFcn = 0;
+        var nStep = 0;
+        var nAccept = 0;
+        var nReject = 0;
+
+        function log10(x: number): number {
+            return Math.log(x) / Math.LN10;
+        }
+
+        // call to core integrator
+        const nrd = Math.max(1, denseComponents.length);
+        const ncom = Math.max(1, (2 * km + 5) * denseComponents.length);
+        const dens = new Array(ncom);
+        const fSafe = Solver.make2d(lfSafe, nrd);
+        // now return: nfcn, nstep, naccept, nreject XXX
+
+
+        var odxcor = (): string => {
+
+            var acceptStep = () => {   // label 60
+                console.log('accept step', xOld, x, h, k, kc);
+                xOld = x;
+                x += h;
+                if (this.denseOutput) {
+                    // kMit = mu of the paper
+                    var kMit = 2 * kc - mudIf + 1;
+                    for (var i = 0; i < nrd; ++i) dens[i] = y[denseComponents[i]];
+                    var xOldd = xOld;
+                    var hhh = h;  // note: xOldd and hhh are part of /CONODX/
+                    for (var i = 0; i < nrd; ++i) dens[nrd+i] = h*dz[denseComponents[i]];
+                    var kln = 2 * nrd;
+                    for (var i = 0; i < nrd; ++i) dens[kln+i] = t[1][denseComponents[i]];
+                    // compute solutioni at mid-point
+                    for (var j = 1; j < kc; ++j) {
+                        var dblenj = nj[j];
+                        for (var l = j; l > 0; --l) {
+                            var factor = Math.pow(dblenj/nj[l-1], 2) - 1;
+                            for (var i = 1; i < nrd; ++i) {
+                                ySafe[l-1][i] = ySafe[l][i]+(ySafe[l][i] - ySafe[l-1][i]) / factor;
+                            }
+                        }
+                    }
+                    var krn = 4 * nrd;
+                    for (var i = 0; i < nrd; ++i) dens[krn+i] = ySafe[0][i];
+                    // compute first derivative at right end
+                    // LEFT OFF
+                }
+                for (var i = 0; i < this.n; ++i) y[i] = t[0][i];
+                ++nAccept;
+                if (solOut) {
+                    // XXX! But if denseOutput, we also want to supply the dense closure!
+                    if (this.denseOutput) {
+                        throw new Error("not there yet");
+                    }
+                    solOut(nAccept+1, xOld, x, y);
+                }
+                // compute optimal order
+                var kopt;
+                console.log('optimal', kc, km);
+                if (kc === 1) {
+                    kopt = Math.min(2, km-1);
+                    // shit. dealing with 0-1 based indexing here is a bitch.
+                    if (reject) kopt = 1;
+                } else {
+                    if (kc <= k) {
+                        console.log('top way');
+                        kopt = kc;
+                        if (w[kc-1] < w[kc]*this.stepSizeFac3) kopt = kc-1;
+                        if (w[kc] < w[kc-1]*this.stepSizeFac4) kopt = Math.min(kc+1,km-1);
+                    } else {
+                        console.log('bottom way');
+                        kopt = kc-1;
+                        if (kc > 2 && w[kc-2] < w[kc-1]*this.stepSizeFac3) kopt = kc-2;
+                        if (w[kc] < w[kopt] * this.stepSizeFac4) kopt = Math.min(kc, km-1);
+                    }
+                }
+                console.log('chose', kopt);
+                // after a rejected step
+                if (reject) {
+                    k = Math.min(kopt, kc);
+                    h = posneg * Math.min(Math.abs(h), Math.abs(hh[k]));
+                    reject = false;
+                    return; // goto 10
+                }
+                if (kopt < kc) {
+                    h = hh[kopt];
+                } else {
+                    if (kc < k && w[kc]<w[kc-1]*fac4) {
+                        h = hh[kc]*a[kopt+1]/a[kc];
+                        console.log('hh', hh);
+                        console.log('kc', kc, 'hh(kc)', hh[kc], 'kopt', kopt, 'a(kopt+1)', a[kopt+1], 'a(kc)', a[kc]);
+
+                        console.log('1. h got', h);
+                    } else {
+                        h = hh[kc]*a[kopt]/a[kc];
+                        console.log('2. h got', h);
+                    }
+
+
+                }
+                // compute stepsize for next step
+                k = kopt;
+                h = posneg*Math.abs(h);
+                console.log('optimal k,h', k,h)
+            };
+
+            var midex = (j: number): void => {
+                const dy = new Array(this.n);
+
+                console.log('midex', j);
+                // Computes the jth line of the extrapolation table and provides an estimation of the optional stepsize
+                const hj = h / nj[j];
+                // Euler starting step
+                for (var i = 0; i < this.n; ++i) {
+                    yh1[i] = y[i];
+                    yh2[i] = y[i] + hj * dz[i];
+                }
+                // Explicit midpoint rule
+                const m = nj[j] - 1;
+                const njMid = (nj[j] / 2) | 0;
+                for (var mm = 1; mm <= m; ++mm) {
+                    if (this.denseOutput && mm === njMid) {
+                        for (i = 0; i < nrd; ++i) {
+                            ySafe[j][i] = yh2[denseComponents[i]]
+                        }
+                    }
+                    f(x+hj*mm, yh2, dy);
+                    if (this.denseOutput && Math.abs(mm-njMid) <= 2*j) { // was j-1
+                        ++iPt;
+                        for (i = 0; i < nrd; ++i) {
+                            fSafe[iPt][i] = dy[denseComponents[i]];
+                        }
+                    }
+                    for (var i = 0; i < this.n; ++i) {
+                        var ys = yh1[i];
+                        yh1[i] = yh2[i];
+                        yh2[i] = ys + 2 * hj * dy[i];
+                    }
+                    if (mm <= mStab && j <= jStab) {
+                        var del1 = 0;
+                        for (var i = 0; i < this.n; ++i) {
+                            del1 += Math.pow(dz[i]/scal[i], 2);
+                        }
+                        var del2 = 0;
+                        for (var i = 0; i < this.n; ++i) {
+                            del2 += Math.pow((dy[i]-dz[i]) / scal[i], 2);
+                        }
+                        var quot = del2 / Math.max(this.uRound, del1);
+                        if (quot > 4) {
+                            ++nFcn;
+                            atov = true;
+                            h *= safe3;
+                            reject = true;
+                            return;
+                        }
+                    }
+                }
+                // console.log('YSAFE', ySafe);
+                // final smoothing step
+                f(x+h, yh2, dy);
+                if (this.denseOutput && njMid <= 2*j) { // was j-1
+                    ++iPt;
+                    for (var i = 0; i < nrd; ++i) {
+                        fSafe[iPt][i] = dy[denseComponents[i]];
+                    }
+                }
+                for (var i = 0; i < this.n; ++i) {
+                    t[j][i] = (yh1[i]+yh2[i]+hj*dy[i])/2;
+                    console.log('1. set t', j, i, t[j][i]);
+                }
+                nFcn += nj[j];
+                // polynomial extrapolation
+                if (j === 0) return; // was j.eq.1
+                var dblenj = nj[j];
+                for (var l = j; l > 0; --l) {
+                    var fac = Math.pow(dblenj/nj[l-1], 2)-1;
+                    for (var i = 0; i < this.n; ++i) {
+                        var tlm1i = t[l][i]+(t[l][i]-t[l-1][i])/fac;
+                        console.log('1. set t', l-1, i, tlm1i);
+
+                        t[l-1][i] = t[l][i]+(t[l][i]-t[l-1][i])/fac;
+                    }
+                }
+                err = 0;
+                // scaling
+                for (var i = 0; i < this.n; ++i) {
+                    var t1i = Math.max(Math.abs(y[i]), Math.abs(t[0][i]));
+                    scal[i] = aTol[i] + rTol[i]*t1i;
+                    err += Math.pow((t[0][i]-t[1][i])/scal[i], 2);
+                }
+                err = Math.sqrt(err/this.n);
+                if (err*this.uRound >= 1) {
+                    atov = true;
+                    h *= safe3;
+                    reject = true;
+                    return;
+                }
+                errOld = Math.max(4*err, 1);
+                // compute optimal stepsizes
+                var exp0 = 1/(2*(j+1)-1);
+                console.log('j', j, 'exp0', exp0, 'err', err, 'h', h);
+                var facMin = Math.pow(this.stepSizeFac1, exp0);
+                fac = Math.min(this.stepSizeFac2/facMin, Math.max(facMin, Math.pow(err/safe1, exp0)/safe2));
+                fac = 1/fac;
+                console.log('facmin', facMin, 'fac', fac);
+                hh[j] = Math.min(Math.abs(h)*fac, hMax);
+                w[j] = a[j]/hh[j];
+                console.log('YH1', yh1);
+                console.log('YH2', yh2);
+            };
+
+
+
+            // preparation
+            const ySafe = Solver.make2d(km, nrd);
+            const hh = new Array(km);
+            const t = Solver.make2d(km, this.n);
+            // Define the step size sequence
+            const nj = Solver.stepSizeSequence(nSeq, km);
+            // Define the a[i] for order selection
+            const a = new Array(km);
+            a[0] = 1+nj[0];
+            for (i = 1; i < km; ++i) {
+                a[i] = a[i-1] + nj[i];
+            }
+            // Initial Scaling
+            const scal = new Array(this.n);
+            for (i = 0; i < this.n; ++i) {
+                scal[i] = aTol[i] + rTol[i] + Math.abs(y[i]);
+            }
+            // Initial preparations
+            const posneg = xEnd - x >= 0 ? 1 : -1;
+            var k = Math.max(2,Math.min(km-1,Math.floor(-log10(rTol[0] + 1e-40) * 0.6 + 1.5))) - 1;
+            console.log('K', k);
+            var h = Math.max(Math.abs(this.initialStepSize), 1e-4);
+            h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2);
+            const iPoint = new Array(km+1);
+            const errfac = new Array(2*km);
+            var xOld = x;
+            var iPt = 0;
+            if (solOut) {
+                if (this.denseOutput) {
+                    iPoint[0] = 0;
+                    for (i = 0; i < km; ++i) {
+                        var njAdd = 4 * (i + 1) - 2;
+                        if (nj[i] > njAdd) ++njAdd;
+                        iPoint[i+1] = iPoint[i] + njAdd;
+                    }
+                    for (var mu = 0; mu < 2 * km; ++mu) {
+                        var errx = Math.sqrt(mu/(mu+4)) * 0.5;
+                        var prod = Math.pow(1/(mu+4), 2);
+                        for (var j = 0; j < mu; ++j) prod *= errx/j;
+                        errfac[mu] = prod;
+                    }
+                    iPt = 0;
+                }
+                // XXX check return value and abandon integration if called for
+                if (false === solOut(nAccept+1, xOld, x, y)) {
+                    return 'interrupted';
+                }
+            }
+            var err = 0;
+            var errOld = 1e10;
+            var hoptde = posneg * hMax;
+            const w = new Array(km);
+            w[0] = 0;
+            var reject = false;
+            var last = false;
+            var atov: boolean;
+            var kc;
+
+
+
+
+
+            enum STATE {
+                START, BASIC_INTEGRATION_STEP, CONVERGENCE_STEP, HOPE_FOR_CONVERGENCE, ACCEPT, REJECT
+            }
+            var state: STATE = STATE.START;
+
+
+            loop: while (true) {
+                switch (state) {
+                    case STATE.START:
+                        console.log('START', nStep, '@', xOld, x, h, k, kc);
+                        atov = false;
+                        // Is xEnd reached in the next step?
+                        if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * uRound) {
+                            // populate return value
+                            break loop;
+                        }
+                        h = posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), hMax, Math.abs(hoptde));
+                        if ((x + 1.01 * h - xEnd) * posneg > 0) {
+                            h = xEnd - x;
+                            last = true;
+                        }
+                        if (nStep === 0 || !this.denseOutput) {
+                            f(x, y, dz);
+                            ++nFcn;
+                        }
+                        // The first and last step
+                        if (nStep === 0 || last) {
+                            iPt = 0;
+                            ++nStep;
+                            for (j = 0; j < k; ++j) {
+                                kc = j;
+                                console.log('point 1. kc gets', kc);
+                                console.log('before midex j', j, 'x', x, 'y', y, 'h', h, 'hmax', hMax, 'yh1', yh1, 'yh2', yh2, 'dz', dz);
+                                midex(j);
+                                if (atov) continue loop;
+                                if (j > 0 && err <= 1) {
+                                    console.log('accept from 1');
+                                    state = STATE.ACCEPT;
+                                    continue loop;
+                                }
+                            }
+                            console.log('entering hope from f&l');
+                            state = STATE.HOPE_FOR_CONVERGENCE;
+                            continue loop;
+
+                        }
+                        state = STATE.BASIC_INTEGRATION_STEP;
+                        continue loop;
+                        // or: FALL THROUGH ?
+
+                    case STATE.BASIC_INTEGRATION_STEP:
+                        console.log('BASIC', k);
+                        // basic integration step
+                        iPt = 0;
+                        ++nStep;
+                        if (nStep >= this.maxSteps) {
+                            // populate return value;
+                            break loop;
+                        }
+                        kc = k - 1;
+                        console.log('point 2. kc gets', kc);
+                        for (var j = 0; j <= kc; ++j) {
+                            midex(j);
+                            if (atov) {
+                                state = STATE.START;
+                                continue loop;
+                            }
+                        }
+                        // convergence monitor
+                        if (k === 1 || reject) {  // or k === 2? is it zero-based?
+                            state = STATE.CONVERGENCE_STEP;
+                        } else {
+                            if (err <= 1) {
+                                console.log('accept from 2');
+                                state = STATE.ACCEPT;
+                            } else if (err > Math.pow((nj[k+1]*nj[k])/4, 2)) {
+                                state = STATE.REJECT;
+                            } else state = STATE.CONVERGENCE_STEP;
+                        }
+                        continue loop;
+
+                    case STATE.CONVERGENCE_STEP:  // label 50
+                        console.log('CONVERGENCE', k);
+                        midex(k);
+                        if (atov) {
+                            state = STATE.START;
+                            continue loop;
+                        }
+                        kc = k;
+                        console.log('point 3. kc gets', k);
+                        console.log('convergence err', err);
+                        if (err <= 1) {
+                            console.log('accept from 3');
+                            state = STATE.ACCEPT;
+                            continue loop;
+                        }
+                        console.log('entering hope from convergence step');
+                        state = STATE.HOPE_FOR_CONVERGENCE;
+                        continue loop;
+
+                    case STATE.HOPE_FOR_CONVERGENCE:
+                        console.log('HOPE', k);
+                        // hope for convergence in line k+1
+                        if (err > Math.pow(nj[k+1]/2, 2)) {
+                            state = STATE.REJECT;
+                            continue loop;
+                        }
+                        kc = k+1;
+                        console.log('point 4. kc gets', kc);
+                        midex(kc);
+                        if (atov) {
+                            state = STATE.START;
+                        } else if (err > 1) {
+                            state = STATE.REJECT;
+                        } else {
+                            console.log('accept from 4');
+                            state = STATE.ACCEPT;
+                        }
+                        continue loop;
+
+                    case STATE.ACCEPT:
+                        console.log('ACCEPT');
+                        acceptStep(this.n);
+                        console.log('acceptstep goes to start');
+                        state = STATE.START;
+                        continue loop;
+
+                    case STATE.REJECT:
+                        console.log('REJECT');
+                        k = Math.min(k, kc, km-1);
+                        if (k > 2 && w[k-1] < w[k]*this.stepSizeFac3) k -= 1;
+                        ++nReject;
+                        h = posneg * hh[k];
+                        reject = true;
+                        state = STATE.BASIC_INTEGRATION_STEP;
+                        continue loop;
+                }
+            }
+
+            return 'success';
+        };
+
+
+        // Core integrator for ODEX
+
+
+
+        var exitReason = odxcor();
+        console.log('!!! Y', y);
+        return {y: y, reason: exitReason};
+    }
+}
+
+

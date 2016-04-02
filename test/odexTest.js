@@ -1,0 +1,252 @@
+///<reference path="../../../Library/Preferences/IntelliJIdea2016.1/javascript/extLibs/http_github.com_DefinitelyTyped_DefinitelyTyped_raw_master_jasmine_jasmine.d.ts"/>
+///<reference path="../../../Library/Preferences/IntelliJIdea2016.1/javascript/extLibs/http_github.com_DefinitelyTyped_DefinitelyTyped_raw_master_assert_assert.d.ts"/>
+"use strict";
+/**
+ * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
+ *
+ * Copyright (c) 2016 Colin Smith.
+ *
+ */
+var odex_1 = require("../src/odex");
+var assert = require('power-assert');
+describe('Odex', function () {
+    var airy = function (x, y, yp) {
+        yp[0] = y[1];
+        yp[1] = x * y[0];
+    };
+    var vanDerPol = function (eps) { return function (x, y, yp) {
+        yp[0] = y[1];
+        yp[1] = ((1 - Math.pow(y[0], 2)) * y[1] - y[0]) / eps;
+    }; };
+    var bessel = function (a) { return function (x, y, yp) {
+        var xsq = x * x;
+        yp[0] = y[1];
+        yp[1] = ((a * a - xsq) * y[0] - x * y[1]) / xsq;
+    }; };
+    var trig = function (x, y, yp) { yp[0] = y[1]; yp[1] = -y[0]; };
+    describe('stepSizeSequence', function () {
+        it('is correct for Type 1', function () { return assert.deepEqual([0, 2, 4, 6, 8, 10, 12, 14, 16], odex_1.Solver.stepSizeSequence(1, 8)); });
+        it('is correct for Type 2', function () { return assert.deepEqual([0, 2, 4, 8, 12, 16, 20, 24, 28], odex_1.Solver.stepSizeSequence(2, 8)); });
+        it('is correct for Type 3', function () { return assert.deepEqual([0, 2, 4, 6, 8, 12, 16, 24, 32], odex_1.Solver.stepSizeSequence(3, 8)); });
+        it('is correct for Type 4', function () { return assert.deepEqual([0, 2, 6, 10, 14, 18, 22, 26, 30], odex_1.Solver.stepSizeSequence(4, 8)); });
+        it('is correct for Type 5', function () { return assert.deepEqual([0, 4, 8, 12, 16, 20, 24, 28, 32], odex_1.Solver.stepSizeSequence(5, 8)); });
+        it('throws for a bad Type', function () { return assert.throws(function () { return odex_1.Solver.stepSizeSequence(6, 8); }, Error); });
+        it('throws for a bad Type', function () { return assert.throws(function () { return odex_1.Solver.stepSizeSequence(0, 8); }, Error); });
+    });
+    describe('Van der Pol equation w/o dense output', function () {
+        var s = new odex_1.Solver(2);
+        var tol = 1e-5;
+        s.absoluteTolerance = s.relativeTolerance = tol;
+        s.initialStepSize = 0.01;
+        s.maxSteps = 50;
+        var y0 = [2, 0];
+        var _a = s.solve(vanDerPol(0.1), 0, y0, 2), _b = _a.y, y1 = _b[0], y1p = _b[1], outcome = _a.outcome;
+        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.CONVERGED); });
+        it('worked for y', function () { return assert(Math.abs(y1 + 1.58184) < tol * 10); });
+        it('worked for y\'', function () { return assert(Math.abs(y1p - 0.978449) < tol * 10); });
+    });
+    describe('y\' = y, (exp)', function () {
+        var s = new odex_1.Solver(1);
+        var tol = 1e-8;
+        s.absoluteTolerance = s.relativeTolerance = tol;
+        var y0 = [1];
+        var _a = s.solve(function (x, y, yp) {
+            yp[0] = y[0];
+        }, 0, y0, 1), y1 = _a.y[0], outcome = _a.outcome;
+        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.CONVERGED); });
+        it('worked for y', function () { return assert(Math.abs(y1 - Math.exp(1)) < tol * 10); });
+    });
+    describe('y" = -y (sine/cosine)', function () {
+        var s = new odex_1.Solver(2);
+        var y0 = [0, 1];
+        var _a = s.solve(trig, 0, y0, 1), _b = _a.y, y1 = _b[0], y1p = _b[1], outcome = _a.outcome;
+        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.CONVERGED); });
+        it('worked for y', function () { return assert(Math.abs(y1 - Math.sin(1)) < 1e-5); });
+        it('worked for y\'', function () { return assert(Math.abs(y1p - Math.cos(1)) < 1e-5); });
+        var c = s.solve(trig, 0, y0, 10);
+        it('converged: long range', function () { return assert.equal(c.outcome, odex_1.Outcome.CONVERGED); });
+        it('worked for y', function () { return assert(Math.abs(c.y[0] - Math.sin(10)) < 1e-4); });
+        it('worked for y\'', function () { return assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4); });
+    });
+    describe('Airy equation y" = xy', function () {
+        var s = new odex_1.Solver(2);
+        s.initialStepSize = 1e-4;
+        var y0 = [0.3550280539, -0.2588194038];
+        var a = s.solve(airy, 0, y0, 1);
+        it('worked', function () { return assert(a.outcome === odex_1.Outcome.CONVERGED); });
+        it('1st kind: works for y', function () { return assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5); });
+        it('1st kind: works for y\'', function () { return assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5); });
+        // Airy equation of the second kind (or "Bairy equation"); this has different
+        // initial conditions
+        y0 = [0.6149266274, 0.4482883574];
+        var b = s.solve(airy, 0, y0, 1);
+        it('worked', function () { return assert(b.outcome === odex_1.Outcome.CONVERGED); });
+        it('2nd kind: works for y', function () { return assert(Math.abs(b.y[0] - 1.207423595) < 1e-5); });
+        it('2nd kind: works for y\'', function () { return assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5); });
+    });
+    describe('Bessel equation x^2 y" + x y\' + (x^2-a^2) y = 0', function () {
+        var s = new odex_1.Solver(2);
+        var y1 = [0.4400505857, 0.3251471008];
+        var y2 = s.solve(bessel(1), 1, y1, 2);
+        it('converged', function () { return assert(y2.outcome === odex_1.Outcome.CONVERGED); });
+        it('y', function () { return assert(Math.abs(y2.y[0] - 0.5767248078) < 1e-5); });
+        it('y\'', function () { return assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5); });
+        s.initialStepSize = 1e-6;
+        var y3 = s.solve(bessel(1), 1, y1, 2);
+        it('converged', function () { return assert(y3.outcome === odex_1.Outcome.CONVERGED); });
+        it('y (small step size)', function () { return assert(Math.abs(y3.y[0] - 0.5767248078) < 1e-6); });
+        it('y\' (small step size)', function () { return assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6); });
+        s.absoluteTolerance = s.relativeTolerance = 1e-12;
+        var y4 = s.solve(bessel(1), 1, y1, 2);
+        it('converged', function () { return assert(y4.outcome === odex_1.Outcome.CONVERGED); });
+        it('y (low tolerance)', function () { return assert(Math.abs(y4.y[0] - 0.5767248078) < 1e-10); });
+        it('y\' (low tolerance)', function () { return assert(Math.abs(y4.y[1] + 0.06447162474) < 1e-10); });
+    });
+    describe('max step control', function () {
+        var s = new odex_1.Solver(2);
+        s.maxSteps = 2;
+        var o = s.solve(vanDerPol(0.1), 0, [2, 0], 10);
+        it('didn\' t converge', function () { return assert(o.outcome === odex_1.Outcome.MAX_STEPS_EXCEEDED); });
+        it('tried', function () { return assert(o.nStep === s.maxSteps); });
+    });
+    describe('exits early when asked to', function () {
+        var s = new odex_1.Solver(1);
+        var evalLimit = 3;
+        var evalCount = 0;
+        var o = s.solve(function (x, y, yp) { yp[0] = y[0]; }, 0, [1], 1, function () {
+            if (++evalCount === evalLimit)
+                return false;
+        });
+        it('noticed the early exit', function () { return assert(o.outcome === odex_1.Outcome.EARLY_RETURN); });
+        it('took the right number of steps', function () { return assert(o.nStep === evalLimit - 1); });
+    });
+    describe('cosine (observer)', function () {
+        var s = new odex_1.Solver(2);
+        var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function (n, xOld, x, y) {
+            it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.cos(x)) < 1e-4); });
+            //console.log('observed cos', Math.abs(y[0]-Math.cos(x)));
+        });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+    });
+    describe('sine (observer)', function () {
+        var s = new odex_1.Solver(2);
+        var o = s.solve(trig, 0, [0, 1], 2 * Math.PI, function (n, xOld, x, y) {
+            it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.sin(x)) < 1e-5); });
+        });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+    });
+    describe('cosine (dense output)', function () {
+        var s = new odex_1.Solver(2);
+        s.denseOutput = true;
+        var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function () {
+            //console.log('dense cos', Math.abs(y[0]-Math.cos(x)));
+        });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+    });
+    describe('cosine (dense output, no error estimation)', function () {
+        var s = new odex_1.Solver(2);
+        s.denseOutput = true;
+        s.denseOutputErrorEstimator = false;
+        var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function () {
+            //console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)));
+        });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('evaluated f the correct number of times', function () { return assert(o.nEval === 183); });
+        it('took the correct number of steps', function () { return assert(o.nStep === 8); });
+        it('had no rejection steps', function () { return assert(o.nReject === 0); });
+    });
+    describe('cosine (dense output, grid evaluation)', function () {
+        var s = new odex_1.Solver(2);
+        s.denseOutput = true;
+        var grid = 0.1;
+        var current = 0.0;
+        var o = s.solve(trig, 0, [1, 0], Math.PI / 2, function (n, xOld, x, y, f) {
+            var _loop_1 = function() {
+                var k = current;
+                var v = f(0, current);
+                var vp = f(1, current);
+                //console.log('eval', xOld, x, current, v, Math.abs(v-Math.cos(current)));
+                it('is accurate at interpolated grid point', function () { return assert(Math.abs(v - Math.cos(k)) < 1e-5); });
+                it('derivative is accurate at interpolated grid point', function () { return assert(Math.abs(vp + Math.sin(k)) < 1e-5); });
+                current += grid;
+            };
+            while (current >= xOld && current < x) {
+                _loop_1();
+            }
+        });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('evaluated f the correct number of times', function () { return assert(o.nEval === 101); });
+        it('took the correct number of steps', function () { return assert(o.nStep === 7); });
+        it('had no rejection steps', function () { return assert(o.nReject === 0); });
+    });
+    describe('cosine (observer, long range)', function () {
+        var s = new odex_1.Solver(2);
+        s.denseOutput = false;
+        var o = s.solve(trig, 0, [1, 0], 16 * Math.PI, function (n, xOld, x, y) {
+            it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.cos(x)) < 2e-4); });
+            //console.log('observed cos l.r.', n, x, y[0], Math.abs(y[0]-Math.cos(x)));
+        });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('evaluated f the correct number of times', function () { return assert(o.nEval === 920); });
+        it('took the correct number of steps', function () { return assert(o.nStep === 34); });
+        it('had no rejection steps', function () { return assert(o.nReject === 0); });
+    });
+    describe('bogus parameters', function () {
+        it('throws if maxSteps is <= 0', function () {
+            var s = new odex_1.Solver(2);
+            s.maxSteps = -2;
+            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+        });
+        it('throws if maxExtrapolationColumns is <= 2', function () {
+            var s = new odex_1.Solver(2);
+            s.maxExtrapolationColumns = 1;
+            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+        });
+        it('throws for dense-output-incompatible step sequence', function () {
+            var s = new odex_1.Solver(2);
+            s.stepSizeSequence = 1;
+            s.denseOutput = true;
+            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+        });
+        it('throws when dense output is requested but no observer function is given', function () {
+            var s = new odex_1.Solver(2);
+            s.denseOutput = true;
+            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+        });
+        it('throws for bad interpolation formula degree', function () {
+            var s = new odex_1.Solver(2);
+            s.interpolationFormulaDegree = 99;
+            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+        });
+        it('throws for bad uRound', function () {
+            var s = new odex_1.Solver(1);
+            s.uRound = Math.PI;
+            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+        });
+        it('throws for bad dense component', function () {
+            var s = new odex_1.Solver(2);
+            s.denseOutput = true;
+            s.denseComponents = [5];
+            assert.throws(function () { s.solve(trig, 0, [1, 0], 1, function () { return 0; }); }, Error);
+        });
+    });
+    describe('requesting specific dense output component', function () {
+        var s = new odex_1.Solver(2);
+        s.denseComponents = [1]; // we only want y', e.g., -sin(x), densely output
+        s.denseOutput = true;
+        var component = function (k) {
+            var diff = 1e10;
+            s.solve(trig, 0, [1, 0], 1, function (n, xOld, x, y, f) {
+                if (x > 0) {
+                    var xh = (x - xOld) / 2;
+                    diff = Math.abs(f(k, xh) + Math.sin(xh));
+                    return false;
+                }
+            });
+            return diff;
+        };
+        it('works for the selected component', function () { return assert(component(1) < 1e-5); });
+        it('throws for unselected component', function () { return assert.throws(function () { return component(0); }, Error); });
+    });
+});
+//# sourceMappingURL=odexTest.js.map

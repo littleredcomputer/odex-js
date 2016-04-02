@@ -1,0 +1,5 @@
+**/a.out
+.idea/
+coverage/
+node_modules/
+*.iml
