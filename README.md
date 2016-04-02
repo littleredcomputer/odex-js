@@ -1,5 +1,5 @@
 ## odex-js : ODEX in JavaScript
-
+[![Build Status](https://travis-ci.org/littleredcomputer/odex-js.svg?branch=master)](https://travis-ci.org/littleredcomputer/odex-js) [![GitHub license](https://img.shields.io/github/license/littleredcomputer/odex-js.svg)]() [![npm](https://img.shields.io/npm/v/odex.svg)]()
 #### Numerically solves of non-stiff systems of ordinary differential equations in JavaScript.
 
 This is a port to JavaScript (actually, TypeScript) of [E. Hairer and
