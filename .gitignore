@@ -1,4 +1,5 @@
 **/a.out
+*.js.map
 .idea/
 coverage/
 node_modules/
