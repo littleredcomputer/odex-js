@@ -8,6 +8,7 @@
  *
  */
 
+import odex = require('../src/odex');
 import {Solver, Outcome} from "../src/odex";
 import assert = require('power-assert');
 
@@ -290,7 +291,7 @@ describe('Odex', () => {
         s.denseOutput = true;
         let i = 0;
         s.solve(lotkaVolterra(2/3, 4/3, 1, 1), 0, [1,1], 15, s.grid(1, (x, y) => {
-            let diff = Math.abs(y[0] - data[i][0])
+            let diff = Math.abs(y[0] - data[i][0]);
             it('works for y1 at grid point ' + i, () => assert(diff < 1e-4));
             ++i;
         }));

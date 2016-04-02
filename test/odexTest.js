@@ -1,12 +1,6 @@
 ///<reference path="../../../Library/Preferences/IntelliJIdea2016.1/javascript/extLibs/http_github.com_DefinitelyTyped_DefinitelyTyped_raw_master_jasmine_jasmine.d.ts"/>
 ///<reference path="../../../Library/Preferences/IntelliJIdea2016.1/javascript/extLibs/http_github.com_DefinitelyTyped_DefinitelyTyped_raw_master_assert_assert.d.ts"/>
 "use strict";
-/**
- * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
- *
- * Copyright (c) 2016 Colin Smith.
- *
- */
 var odex_1 = require("../src/odex");
 var assert = require('power-assert');
 describe('Odex', function () {

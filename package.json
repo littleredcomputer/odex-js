@@ -1,5 +1,5 @@
 {
-  "name": "odexjs",
+  "name": "odex",
   "version": "0.0.1",
   "description": "Ernst Hairer's ODEX nonstiff ODE solver in JavaScript",
   "main": "src/odex.js",
@@ -7,7 +7,10 @@
     "test": "mocha --require intelli-espower-loader test",
     "coverage": "istanbul cover _mocha test"
   },
-  "author": "colin.smith@gmail.com",
+  "repository": {
+    "url": "http://github.com/littleredcomputer/odex-js"
+  },
+  "author": "Colin Smith <colin.smith@gmail.com> (http://github.com/littleredcomputer)",
   "license": "BSD-2-Clause",
   "devDependencies": {
     "intelli-espower-loader": "^1.0.1",

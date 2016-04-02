@@ -1,7 +1,10 @@
 /**
- * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
+ * An implementation of ODEX, by E. Hairer and G. Wanner,
+ * ported from the Fortran ODEX.F. It carries the same
+ * license.
  *
- * Copyright (c) 2016 Colin Smith.
+ *
+ *
  *
  */
 "use strict";
@@ -44,9 +47,9 @@ var Solver = (function () {
             for (var i = 0; i < this.n; ++i)
                 components.push(i);
         }
-        var first = false;
         var t;
         return function (n, xOld, x, y, interpolate) {
+            console.log('grid', n, xOld, x, y, interpolate);
             if (n === 1) {
                 out(x, y);
                 t = x + dt;
