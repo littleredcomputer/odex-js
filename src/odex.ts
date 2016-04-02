@@ -97,7 +97,6 @@ export class Solver {
         }
         let t;
         return (n, xOld, x, y, interpolate) => {
-            console.log('grid', n, xOld, x, y, interpolate);
             if (n === 1) {
                 out(x, y);
                 t = x + dt;
