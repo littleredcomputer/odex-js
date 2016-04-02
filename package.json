@@ -4,7 +4,7 @@
   "description": "Ernst Hairer's ODEX nonstiff ODE solver in JavaScript",
   "main": "src/odex.js",
   "scripts": {
-    "test": "mocha --require intelli-espower-loader test",
+    "test": "./node_modules/mocha/bin/mocha --require intelli-espower-loader test",
     "coverage": "istanbul cover _mocha test"
   },
   "repository": {
@@ -14,6 +14,7 @@
   "license": "BSD-2-Clause",
   "devDependencies": {
     "intelli-espower-loader": "^1.0.1",
+    "mocha": "^2.4.5",
     "power-assert": "^1.3.1"
   }
 }
