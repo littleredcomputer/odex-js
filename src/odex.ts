@@ -11,12 +11,12 @@ interface Function {  // Function computing the value of Y' = F(x,Y)
      yp: number[]);   // output Y' values (Array of length n)
 }
 
-interface OutputFunction {
-    (nr: number,
-     xold: number,
-     x: number,
-     y: number[],
-     dense?: (c: number, x: number) => number);
+interface OutputFunction {                        // value callback
+    (nr: number,                                  // step number
+     xold: number,                                // left edge of solution interval
+     x: number,                                   // right edge of solution interval (y = F(x))
+     y: number[],                                 // F(x)
+     dense?: (c: number, x: number) => number);   // dense interpolator. Valid in the range [x, xold).
 }
 
 export enum Outcome {
@@ -26,8 +26,8 @@ export enum Outcome {
 }
 
 export class Solver {
-    n: number; // dimension of the system
-    uRound: number;                     // WORK(1), machine epsilon
+    n: number;                          // dimension of the system
+    uRound: number;                     // WORK(1), machine epsilon. (WORK, IWORK are references to odex.f)
     maxSteps: number;                   // IWORK(1), positive integer
     initialStepSize: number;            // H
     maxStepSize: number;                // WORK(2), maximal step size, default xEnd - x
@@ -75,6 +75,32 @@ export class Solver {
         this.absoluteTolerance = 1e-5;
         this.debug = false;
     }
+    
+       
+    grid(dt: number, out: (xOut: number, yOut: number[]) => any) {
+        var components: number[] = this.denseComponents;
+        if (!components) {
+            components = [];
+            for (let i = 0; i < this.n; ++i) components.push(i);
+        }
+        let first = false;
+        let t;
+        return (n, xOld, x, y, interpolate) => {
+            if (n === 1) {
+                out(x, y);
+                t = x + dt;
+                return;
+            }
+            while (t <= x) {
+                let yf = [];
+                for (let i of components) {
+                    yf.push(interpolate(i, t));
+                }
+                out(t, yf);
+                t += dt;
+            }
+        }
+    }
 
     // return a 1-based array of length n. Initial values undefined.
     private static dim(n: number): number[] {
@@ -103,30 +129,28 @@ export class Solver {
         return a;
     }
 
+    // Integrate the differential system represented by f, from x to xEnd, with initial data y.
+    // solOut, if provided, is called at each integration step.
     solve(f: Function,
           x: number,
           y: number[],
           xEnd: number,
           solOut?: OutputFunction) {
-        
 
         // Make a copy of y, 1-based. We leave the user's parameters alone so that they may be reused if desired.
         var y = [0].concat(y);
-        var dz = Solver.dim(this.n);
-        var yh1 = Solver.dim(this.n);
-        var yh2 = Solver.dim(this.n);
+        let dz = Solver.dim(this.n);
+        let yh1 = Solver.dim(this.n);
+        let yh2 = Solver.dim(this.n);
         if (this.maxSteps <= 0) throw new Error("maxSteps must be positive");
         const km = this.maxExtrapolationColumns;
         if (km <= 2) throw new Error ("maxExtrapolationColumns must be > 2");
         const nSeq = this.stepSizeSequence || (this.denseOutput ? 4 : 1);
         if (nSeq <= 3 && this.denseOutput) throw new Error("stepSizeSequence incompatible with denseOutput");
         if (this.denseOutput && !solOut) throw new Error("denseOutput requires a solution observer function");
-        const mStab = this.stabilityCheckCount;
-        const jStab = this.stabilityCheckTableLines;
-        const mudIf = this.interpolationFormulaDegree;
-        if (mudIf <= 0 || mudIf >= 7) throw new Error("bad interpolationFormulaDegree");
-        var icom = [0]; // icom will be 1-based, so start with a pad entry.
-        var nrdens = 0;
+        if (this.interpolationFormulaDegree <= 0 || this.interpolationFormulaDegree >= 7) throw new Error("bad interpolationFormulaDegree");
+        let icom = [0]; // icom will be 1-based, so start with a pad entry.
+        let nrdens = 0;
         if (this.denseOutput) {
             if (this.denseComponents) {
                 for (let c of this.denseComponents) {
@@ -146,7 +170,6 @@ export class Solver {
         }
         if (this.uRound <= 1e-35 || this.uRound > 1) throw new Error("suspicious value of uRound");
         const hMax = Math.abs(this.maxStepSize || xEnd - x) ;
-        const safe3 = this.stepSizeReductionFactor;
         const lfSafe = 2 * km * km + km;
 
         function expandToArray(x: number|number[], n: number): number[] {
@@ -162,10 +185,10 @@ export class Solver {
         }
         const aTol = expandToArray(this.absoluteTolerance, this.n);
         const rTol = expandToArray(this.relativeTolerance, this.n);
-        var nEval = 0;
-        var nStep = 0;
-        var nAccept = 0;
-        var nReject = 0;
+        let nEval = 0;
+        let nStep = 0;
+        let nAccept = 0;
+        let nReject = 0;
 
         function log10(x: number): number {
             return Math.log(x) / Math.LN10;
@@ -195,12 +218,12 @@ export class Solver {
                 x += h;
                 if (this.denseOutput) {
                     // kmit = mu of the paper
-                    var kmit = 2 * kc - mudIf + 1;
+                    var kmit = 2 * kc - this.interpolationFormulaDegree + 1;
                     for (let i = 1; i <= nrd; ++i) dens[i] = y[icom[i]];
                     var xOldd = xOld;
                     var hhh = h;  // note: xOldd and hhh are part of /CONODX/
                     for (let i = 1; i <= nrd; ++i) dens[nrd+i] = h*dz[icom[i]];
-                    var kln = 2 * nrd;
+                    let kln = 2 * nrd;
                     for (let i = 1; i <= nrd; ++i) dens[kln+i] = t[1][icom[i]];
                     // compute solution at mid-point
                     for (let j = 2; j <= kc; ++j) {
@@ -212,7 +235,7 @@ export class Solver {
                             }
                         }
                     }
-                    var krn = 4 * nrd;
+                    let krn = 4 * nrd;
                     for (let i = 1; i <= nrd; ++i) dens[krn+i] = ySafe[1][i];
                     // compute first derivative at right end
                     for (let i = 1; i <= n; ++i) yh1[i] = t[1][i];
@@ -334,7 +357,8 @@ export class Solver {
 
             var midex = (j: number): void => {
                 const dy = Solver.dim(this.n);
-                // Computes the jth line of the extrapolation table and provides an estimation of the optional stepsize
+                // Computes the jth line of the extrapolation table and 
+                // provides an estimation of the optional stepsize
                 const hj = h / nj[j];
                 // Euler starting step
                 for (let i = 1; i <= this.n; ++i) {
@@ -362,7 +386,7 @@ export class Solver {
                         yh1[i] = yh2[i];
                         yh2[i] = ys + 2 * hj * dy[i];
                     }
-                    if (mm <= mStab && j <= jStab) {
+                    if (mm <= this.stabilityCheckCount && j <= this.stabilityCheckTableLines) {
                         // stability check
                         var del1 = 0;
                         for (let i = 1; i <= this.n; ++i) {
@@ -376,7 +400,7 @@ export class Solver {
                         if (quot > 4) {
                             ++nEval;
                             atov = true;
-                            h *= safe3;
+                            h *= this.stepSizeReductionFactor;
                             reject = true;
                             return;
                         }
@@ -406,21 +430,21 @@ export class Solver {
                 err = 0;
                 // scaling
                 for (let i = 1; i <= this.n; ++i) {
-                    var t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i]));
+                    let t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i]));
                     scal[i] = aTol[i] + rTol[i]*t1i;
                     err += Math.pow((t[1][i]-t[2][i])/scal[i], 2);
                 }
                 err = Math.sqrt(err/this.n);
                 if (err*this.uRound >= 1 || (j > 2 && err >= errOld)) {
                     atov = true;
-                    h *= safe3;
+                    h *= this.stepSizeReductionFactor;
                     reject = true;
                     return;
                 }
                 errOld = Math.max(4*err, 1);
                 // compute optimal stepsizes
-                var exp0 = 1/(2*j-1);
-                var facMin = Math.pow(this.stepSizeFac1, exp0);
+                let exp0 = 1/(2*j-1);
+                let facMin = Math.pow(this.stepSizeFac1, exp0);
                 fac = Math.min(this.stepSizeFac2/facMin, 
                     Math.max(facMin, Math.pow(err/this.stepSafetyFactor1, exp0)/this.stepSafetyFactor2));
                 fac = 1/fac;
@@ -430,7 +454,7 @@ export class Solver {
 
             const interp = (n: number, y: number[], imit: number) => {
                 // computes the coefficients of the interpolation formula
-                var a = new Array(31);  // zero-based: 0:30
+                let a = new Array(31);  // zero-based: 0:30
                 // begin with Hermite interpolation
                 for (let i = 1; i <= n; ++i) {
                     let y0 = y[i];
@@ -522,13 +546,13 @@ export class Solver {
             }
             // Initial preparations
             const posneg = xEnd - x >= 0 ? 1 : -1;
-            var k = Math.max(2,Math.min(km-1,Math.floor(-log10(rTol[1] + 1e-40) * 0.6 + 1.5)));
-            var h = Math.max(Math.abs(this.initialStepSize), 1e-4);
+            let k = Math.max(2,Math.min(km-1,Math.floor(-log10(rTol[1] + 1e-40) * 0.6 + 1.5)));
+            let h = Math.max(Math.abs(this.initialStepSize), 1e-4);
             h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2);
             const iPoint = Solver.dim(km+1);
             const errfac = Solver.dim(2*km);
-            var xOld = x;
-            var iPt = 0;
+            let xOld = x;
+            let iPt = 0;
             if (solOut) {
                 if (this.denseOutput) {
                     iPoint[1] = 0;
@@ -550,20 +574,20 @@ export class Solver {
                     return Outcome.EARLY_RETURN;
                 }
             }
-            var err = 0;
-            var errOld = 1e10;
-            var hoptde = posneg * hMax;
+            let err = 0;
+            let errOld = 1e10;
+            let hoptde = posneg * hMax;
             const w = Solver.dim(km);
             w[1] = 0;
-            var reject = false;
-            var last = false;
-            var atov: boolean;
-            var kc = 0;
+            let reject = false;
+            let last = false;
+            let atov: boolean;
+            let kc = 0;
 
             enum STATE {
                 START, BASIC_INTEGRATION_STEP, CONVERGENCE_STEP, HOPE_FOR_CONVERGENCE, ACCEPT, REJECT
             }
-            var state: STATE = STATE.START;
+            let state: STATE = STATE.START;
 
             loop: while (true) {
                 this.debug && console.log('STATE', STATE[state], nStep, xOld, x, h, k, kc, hoptde);
@@ -675,7 +699,7 @@ export class Solver {
             return Outcome.CONVERGED;
         };
 
-        var outcome = odxcor();
+        let outcome = odxcor();
         return {
             y: y.slice(1),
             outcome: outcome,

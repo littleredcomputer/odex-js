@@ -37,6 +37,32 @@ var Solver = (function () {
         this.absoluteTolerance = 1e-5;
         this.debug = false;
     }
+    Solver.prototype.grid = function (dt, out) {
+        var components = this.denseComponents;
+        if (!components) {
+            components = [];
+            for (var i = 0; i < this.n; ++i)
+                components.push(i);
+        }
+        var first = false;
+        var t;
+        return function (n, xOld, x, y, interpolate) {
+            if (n === 1) {
+                out(x, y);
+                t = x + dt;
+                return;
+            }
+            while (t <= x) {
+                var yf = [];
+                for (var _i = 0, components_1 = components; _i < components_1.length; _i++) {
+                    var i = components_1[_i];
+                    yf.push(interpolate(i, t));
+                }
+                out(t, yf);
+                t += dt;
+            }
+        };
+    };
     // return a 1-based array of length n. Initial values undefined.
     Solver.dim = function (n) {
         return new Array(n + 1);
@@ -81,6 +107,8 @@ var Solver = (function () {
         }
         return a;
     };
+    // Integrate the differential system represented by f, from x to xEnd, with initial data y.
+    // solOut, if provided, is called at each integration step.
     Solver.prototype.solve = function (f, x, y, xEnd, solOut) {
         var _this = this;
         // Make a copy of y, 1-based. We leave the user's parameters alone so that they may be reused if desired.
@@ -98,10 +126,7 @@ var Solver = (function () {
             throw new Error("stepSizeSequence incompatible with denseOutput");
         if (this.denseOutput && !solOut)
             throw new Error("denseOutput requires a solution observer function");
-        var mStab = this.stabilityCheckCount;
-        var jStab = this.stabilityCheckTableLines;
-        var mudIf = this.interpolationFormulaDegree;
-        if (mudIf <= 0 || mudIf >= 7)
+        if (this.interpolationFormulaDegree <= 0 || this.interpolationFormulaDegree >= 7)
             throw new Error("bad interpolationFormulaDegree");
         var icom = [0]; // icom will be 1-based, so start with a pad entry.
         var nrdens = 0;
@@ -128,7 +153,6 @@ var Solver = (function () {
         if (this.uRound <= 1e-35 || this.uRound > 1)
             throw new Error("suspicious value of uRound");
         var hMax = Math.abs(this.maxStepSize || xEnd - x);
-        var safe3 = this.stepSizeReductionFactor;
         var lfSafe = 2 * km * km + km;
         function expandToArray(x, n) {
             // If x is an array, return a 1-based copy of it. If x is a number, return a new 1-based array
@@ -174,7 +198,7 @@ var Solver = (function () {
                 x += h;
                 if (_this.denseOutput) {
                     // kmit = mu of the paper
-                    var kmit = 2 * kc - mudIf + 1;
+                    var kmit = 2 * kc - _this.interpolationFormulaDegree + 1;
                     for (var i = 1; i <= nrd; ++i)
                         dens[i] = y[icom[i]];
                     var xOldd = xOld;
@@ -332,7 +356,8 @@ var Solver = (function () {
             };
             var midex = function (j) {
                 var dy = Solver.dim(_this.n);
-                // Computes the jth line of the extrapolation table and provides an estimation of the optional stepsize
+                // Computes the jth line of the extrapolation table and 
+                // provides an estimation of the optional stepsize
                 var hj = h / nj[j];
                 // Euler starting step
                 for (var i = 1; i <= _this.n; ++i) {
@@ -360,7 +385,7 @@ var Solver = (function () {
                         yh1[i] = yh2[i];
                         yh2[i] = ys + 2 * hj * dy[i];
                     }
-                    if (mm <= mStab && j <= jStab) {
+                    if (mm <= _this.stabilityCheckCount && j <= _this.stabilityCheckTableLines) {
                         // stability check
                         var del1 = 0;
                         for (var i = 1; i <= _this.n; ++i) {
@@ -374,7 +399,7 @@ var Solver = (function () {
                         if (quot > 4) {
                             ++nEval;
                             atov = true;
-                            h *= safe3;
+                            h *= _this.stepSizeReductionFactor;
                             reject = true;
                             return;
                         }
@@ -412,7 +437,7 @@ var Solver = (function () {
                 err = Math.sqrt(err / _this.n);
                 if (err * _this.uRound >= 1 || (j > 2 && err >= errOld)) {
                     atov = true;
-                    h *= safe3;
+                    h *= _this.stepSizeReductionFactor;
                     reject = true;
                     return;
                 }

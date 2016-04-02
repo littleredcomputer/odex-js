@@ -28,6 +28,11 @@ describe('Odex', () => {
         yp[1] = ((a*a - xsq)*y[0] - x*y[1]) / xsq;
     };
 
+    let lotkaVolterra = (a, b, c, d) => (x, y, yp) => {
+        yp[0] = a*y[0] - b*y[0]*y[1];
+        yp[1] = c*y[0]*y[1] - d*y[1];
+    };
+
     let trig = (x, y, yp) => { yp[0] = y[1]; yp[1] = -y[0]; };
 
     describe('stepSizeSequence', () => {
@@ -253,10 +258,43 @@ describe('Odex', () => {
         };
         it('works for the selected component', () => assert(component(1) < 1e-5));
         it('throws for unselected component', () => assert.throws(() => component(0), Error));
-
-
-    })
-
+    });
+    describe('lotka-volterra equations', () => {
+        // Validation data from Mathematica:
+        // LV[a_, b_, c_, d_] :=
+        //  NDSolve[{y1'[x] == a y1[x] - b y1[x] y2[x],
+        //    y2'[x] == c y1[x] y2[x] - d y2[x],
+        //    y1[0] == 1,
+        //    y2[0] == 1},
+        //  {y1, y2}, {x, 0, 25}];
+        // Table[{y1[t], y2[t]} /. LV[2/3, 4/3, 1, 1], {t, 0, 15}]
+        let data = [
+            [1., 1.],
+            [0.574285, 0.777439],
+            [0.489477, 0.47785],
+            [0.576685, 0.296081],
+            [0.80643, 0.2148],
+            [1.19248, 0.211939],
+            [1.65428, 0.325282],
+            [1.69637, 0.684714],
+            [1.01791, 0.999762],
+            [0.580062, 0.786245],
+            [0.489149, 0.484395],
+            [0.572558, 0.299455],
+            [0.798319, 0.215934],
+            [1.18032, 0.21089],
+            [1.64389, 0.319706],
+            [1.70715, 0.672033]
+        ];
+        let s = new Solver(2);
+        s.denseOutput = true;
+        let i = 0;
+        s.solve(lotkaVolterra(2/3, 4/3, 1, 1), 0, [1,1], 15, s.grid(1, (x, y) => {
+            let diff = Math.abs(y[0] - data[i][0])
+            it('works for y1 at grid point ' + i, () => assert(diff < 1e-4));
+            ++i;
+        }));
+    });
 });
 
 
