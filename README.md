@@ -1,4 +1,4 @@
-## odex-js : ODEX in Javascript
+## odex-js : ODEX in JavaScript
 
 #### Numerically solves of non-stiff systems of ordinary differential equations in JavaScript.
 
@@ -14,7 +14,7 @@ configurability, and compact memory footprint.
 is very similar.)
 ##### One first-order equation
 
-The simplest possible example would be y' = y, with y(0) = 1: we expect the
+The simplest possible example would be y&prime; = y, with y(0) = 1: we expect the
 solution y(x) = exp(x). First we create a solver object, telling how many
 independent variables there are in the system (in this case just one).
 
@@ -24,7 +24,7 @@ var s = new odex.Solver(1);
 ```
 
 To represent the differential equation, we write a
-routine that computes y' given y at the point x. For this example it's very
+routine that computes y&prime; given y at the point x. For this example it's very
 simple:
 
 ```js
