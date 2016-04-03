@@ -54,7 +54,7 @@ s.solve(f,
 //   nEval: 75 }
 ```
 
-Not bad: the answer y(1) is close to *e*. It would be closer if we requested
+Not bad: the answer `y[1]` is close to *e*. It would be closer if we requested
 more precision. When you create a new `Solver` object, it is
 equipped with a number of properties you can change to control the integration.
 You can change a property and re-run the solution:
@@ -67,9 +67,8 @@ Math.exp(1) - 2.7182818284562535
 // 2.7915447731174936e-12
 ```
 
-##### Dense Output
-One of the nicest features of ODEX is dense output. This allows you to supply
-a callback function that runs during the integration to supply intermediate
+##### Integration callback
+You can supply a callback function that runs during the integration to supply intermediate
 points of the integration as it proceeds. The callback function is an optional
 parameter to `solve`, which receives the step number, x0, x1 and y(x1). (x0
 and x1 represent the interval covered in this integration step).
@@ -94,9 +93,10 @@ You will observe that `odex` has chosen its own grid points for evaluation.
 Adaptive step size is one of the nicest features of this library: you don't
 have to worry about it too much.
 
+##### Dense Output
 However, you will often want to sample the data at points of your own choosing.
 When you request `denseOutput` in the `Solver` parameters, the function you
-supply to solve receives a fifth argument which is a closure which can obtain
+supply to solve receives a fifth argument which is a closure which you can call to obtain
 very accurate y values in the interval [x0, x1].  You call this closure with
 the index (within the y vector) of the component you want to evaluate, and the
 x value in [x0, x1] where you want to find that y value. One common use case
@@ -116,8 +116,11 @@ s.solve(f, 0, [1], 1, s.grid(0.2, function(x,y) {
 // 1 [ 2.7182804587510203 ]
 // [ 2.7182804587510203 ]
 ```
+
+To see how you could use the dense output feature yourself, take a look at
+the source to grid.
 ##### A system of two first order equations
-Note that in these examples, `y` is a vector: this software is designed to
+Note that in all these examples, `y` is a vector: this software is designed to
 solve systems. Let's work with the [Lotka-Volterra][lv] predator-prey system.
 The system is:
 
@@ -130,7 +133,7 @@ For odex, we call t x, and x and y become y[0] and y[1]. To represent
 the system itself we can write:
 
 ```js
-LV = function(a, b, c, d) {
+var LV = function(a, b, c, d) {
   return function(x, y, yprime) {
     yprime[0] = a * y[0] - b * y[0] * y[1];
     yprime[1] = c * y[0] * y[1] - d * y[1];
@@ -162,8 +165,8 @@ y&prime;<sub>0</sub>&nbsp;=&nbsp;y<sub>1</sub>;&emsp;
 y&prime;<sub>1</sub>&nbsp;&minus;&nbsp;x&nbsp;y<sub>0</sub>&nbsp;=&nbsp;0 to get:
 
 
-```
-airy = function(x, y, ypime) {
+```js
+var airy = function(x, y, yprime) {
   yprime[0] = y[1];
   yprime[1] = x * y[0];
 }
