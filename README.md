@@ -28,12 +28,13 @@ routine that computes y&prime; given y at the point x. For this example it's ver
 simple:
 
 ```js
-var f = function(x, y, yprime) {
-  yprime[0] = y[0];
+var f = function(x, y) {
+  return [y[0]];
 }
 ```
 
 Since we asked for one independent variable, `y` is an array of length 1.
+We return an array of the same size.
 
 
 We can solve the equation by supplying the initial data and the start
@@ -134,9 +135,11 @@ the system itself we can write:
 
 ```js
 var LV = function(a, b, c, d) {
-  return function(x, y, yprime) {
-    yprime[0] = a * y[0] - b * y[0] * y[1];
-    yprime[1] = c * y[0] * y[1] - d * y[1];
+  return function(x, y) {
+    return [
+      a * y[0] - b * y[0] * y[1],
+      c * y[0] * y[1] - d * y[1]
+    ];
   };
 };
 ```
@@ -166,9 +169,8 @@ y&prime;<sub>1</sub>&nbsp;&minus;&nbsp;x&nbsp;y<sub>0</sub>&nbsp;=&nbsp;0 to get
 
 
 ```js
-var airy = function(x, y, yprime) {
-  yprime[0] = y[1];
-  yprime[1] = x * y[0];
+var airy = function(x, y) {
+  return [y[1], x * y[0]];
 }
 ```
 
