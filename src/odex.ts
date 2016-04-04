@@ -17,10 +17,11 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-interface Function {  // Function computing the value of Y' = F(x,Y)
-    (x:  number,      // input x value
-     y:  number[],    // input Y values (Array of length n)
-     yp: number[]);   // output Y' values (Array of length n)
+interface Function {     // Function computing the value of Y' = F(x,Y)
+    (x:   number,        // input x value
+     y:   number[],      // input y value
+     yp?: number[])      // return y' value (deprecated)
+    : number[]|boolean;  // output y' values (Array of length n) or false to halt integration
 }
 
 interface OutputFunction {                        // value callback
@@ -213,11 +214,12 @@ export class Solver {
         // now return: nfcn, nstep, naccept, nreject XXX
 
         // Wrap f in a function F which hides the one-based indexing from the customers.
-        const F: Function = (x, y, yp) => {
+        const F = (x, y, yp) => {
             let yp1 = yp.slice(1);
             let ret = f(x, y.slice(1), yp1);
-            yp.splice(1, this.n, ...yp1);
-            return ret;
+            if (ret instanceof Array) yp.splice(1, this.n, ...ret);
+            else if (ret === false) return false;
+            else yp.splice(1, this.n, ...yp1);
         };
         
         var odxcor = (): Outcome => {

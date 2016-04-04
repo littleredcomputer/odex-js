@@ -22,24 +22,25 @@
 var odex_1 = require("../src/odex");
 var assert = require('power-assert');
 describe('Odex', function () {
-    var airy = function (x, y, yp) {
+    var airy0 = function (x, y, yp) {
         yp[0] = y[1];
         yp[1] = x * y[0];
+        return true;
     };
-    var vanDerPol = function (eps) { return function (x, y, yp) {
-        yp[0] = y[1];
-        yp[1] = ((1 - Math.pow(y[0], 2)) * y[1] - y[0]) / eps;
-    }; };
-    var bessel = function (a) { return function (x, y, yp) {
+    var airy = function (x, y) { return [y[1], x * y[0]]; };
+    var vanDerPol = function (eps) { return function (x, y) { return [
+        y[1],
+        ((1 - Math.pow(y[0], 2)) * y[1] - y[0]) / eps
+    ]; }; };
+    var bessel = function (a) { return function (x, y) {
         var xsq = x * x;
-        yp[0] = y[1];
-        yp[1] = ((a * a - xsq) * y[0] - x * y[1]) / xsq;
+        return [y[1], ((a * a - xsq) * y[0] - x * y[1]) / xsq];
     }; };
-    var lotkaVolterra = function (a, b, c, d) { return function (x, y, yp) {
-        yp[0] = a * y[0] - b * y[0] * y[1];
-        yp[1] = c * y[0] * y[1] - d * y[1];
-    }; };
-    var trig = function (x, y, yp) { yp[0] = y[1]; yp[1] = -y[0]; };
+    var lotkaVolterra = function (a, b, c, d) { return function (x, y) { return [
+        a * y[0] - b * y[0] * y[1],
+        c * y[0] * y[1] - d * y[1]
+    ]; }; };
+    var trig = function (x, y) { return [y[1], -y[0]]; };
     describe('stepSizeSequence', function () {
         it('is correct for Type 1', function () { return assert.deepEqual([0, 2, 4, 6, 8, 10, 12, 14, 16], odex_1.Solver.stepSizeSequence(1, 8)); });
         it('is correct for Type 2', function () { return assert.deepEqual([0, 2, 4, 8, 12, 16, 20, 24, 28], odex_1.Solver.stepSizeSequence(2, 8)); });
@@ -66,9 +67,7 @@ describe('Odex', function () {
         var tol = 1e-8;
         s.absoluteTolerance = s.relativeTolerance = tol;
         var y0 = [1];
-        var _a = s.solve(function (x, y, yp) {
-            yp[0] = y[0];
-        }, 0, y0, 1), y1 = _a.y[0], outcome = _a.outcome;
+        var _a = s.solve(function (x, y) { return [y[0]]; }, 0, y0, 1), y1 = _a.y[0], outcome = _a.outcome;
         it('converged', function () { return assert.equal(outcome, odex_1.Outcome.CONVERGED); });
         it('worked for y', function () { return assert(Math.abs(y1 - Math.exp(1)) < tol * 10); });
     });
@@ -83,6 +82,27 @@ describe('Odex', function () {
         it('converged: long range', function () { return assert.equal(c.outcome, odex_1.Outcome.CONVERGED); });
         it('worked for y', function () { return assert(Math.abs(c.y[0] - Math.sin(10)) < 1e-4); });
         it('worked for y\'', function () { return assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4); });
+    });
+    describe('Airy equation y" = xy (old function style)', function () {
+        // Note: we now prefer the form of the DE function to return
+        // an array, for notational convenience, rather than updating
+        // the third parameter; this allows DEs to be written as
+        // (x, y) => [y', ...] in ES6 notation, so eventually we will
+        // stop supporting the 3rd parameter way.
+        var s = new odex_1.Solver(2);
+        s.initialStepSize = 1e-4;
+        var y0 = [0.3550280539, -0.2588194038];
+        var a = s.solve(airy0, 0, y0, 1);
+        it('worked', function () { return assert(a.outcome === odex_1.Outcome.CONVERGED); });
+        it('1st kind: works for y', function () { return assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5); });
+        it('1st kind: works for y\'', function () { return assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5); });
+        // Airy equation of the second kind (or "Bairy equation"); this has different
+        // initial conditions
+        y0 = [0.6149266274, 0.4482883574];
+        var b = s.solve(airy0, 0, y0, 1);
+        it('worked', function () { return assert(b.outcome === odex_1.Outcome.CONVERGED); });
+        it('2nd kind: works for y', function () { return assert(Math.abs(b.y[0] - 1.207423595) < 1e-5); });
+        it('2nd kind: works for y\'', function () { return assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5); });
     });
     describe('Airy equation y" = xy', function () {
         var s = new odex_1.Solver(2);
@@ -129,7 +149,7 @@ describe('Odex', function () {
         var s = new odex_1.Solver(1);
         var evalLimit = 3;
         var evalCount = 0;
-        var o = s.solve(function (x, y, yp) { yp[0] = y[0]; }, 0, [1], 1, function () {
+        var o = s.solve(function (x, y) { return [y[0]]; }, 0, [1], 1, function () {
             if (++evalCount === evalLimit)
                 return false;
         });

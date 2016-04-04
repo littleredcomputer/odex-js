@@ -197,8 +197,12 @@ var Solver = (function () {
         var F = function (x, y, yp) {
             var yp1 = yp.slice(1);
             var ret = f(x, y.slice(1), yp1);
-            yp.splice.apply(yp, [1, _this.n].concat(yp1));
-            return ret;
+            if (ret instanceof Array)
+                yp.splice.apply(yp, [1, _this.n].concat(ret));
+            else if (ret === false)
+                return false;
+            else
+                yp.splice.apply(yp, [1, _this.n].concat(yp1));
         };
         var odxcor = function () {
             var acceptStep = function (n) {
