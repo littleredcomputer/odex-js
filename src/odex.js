@@ -18,9 +18,9 @@
  */
 "use strict";
 (function (Outcome) {
-    Outcome[Outcome["CONVERGED"] = 0] = "CONVERGED";
-    Outcome[Outcome["MAX_STEPS_EXCEEDED"] = 1] = "MAX_STEPS_EXCEEDED";
-    Outcome[Outcome["EARLY_RETURN"] = 2] = "EARLY_RETURN";
+    Outcome[Outcome["Converged"] = 0] = "Converged";
+    Outcome[Outcome["MaxStepsExceeded"] = 1] = "MaxStepsExceeded";
+    Outcome[Outcome["EarlyReturn"] = 2] = "EarlyReturn";
 })(exports.Outcome || (exports.Outcome = {}));
 var Outcome = exports.Outcome;
 var Solver = (function () {
@@ -74,10 +74,6 @@ var Solver = (function () {
             }
         };
     };
-    // return a 1-based array of length n. Initial values undefined.
-    Solver.dim = function (n) {
-        return new Array(n + 1);
-    };
     // Make a 1-based 2D array, with r rows and c columns. The initial values are undefined.
     Solver.dim2 = function (r, c) {
         var a = new Array(r + 1);
@@ -120,10 +116,10 @@ var Solver = (function () {
     };
     // Integrate the differential system represented by f, from x to xEnd, with initial data y.
     // solOut, if provided, is called at each integration step.
-    Solver.prototype.solve = function (f, x, y, xEnd, solOut) {
+    Solver.prototype.solve = function (f, x, y0, xEnd, solOut) {
         var _this = this;
-        // Make a copy of y, 1-based. We leave the user's parameters alone so that they may be reused if desired.
-        var y = [0].concat(y);
+        // Make a copy of y0, 1-based. We leave the user's parameters alone so that they may be reused if desired.
+        var y = [0].concat(y0);
         var dz = Solver.dim(this.n);
         var yh1 = Solver.dim(this.n);
         var yh2 = Solver.dim(this.n);
@@ -184,9 +180,6 @@ var Solver = (function () {
         var nStep = 0;
         var nAccept = 0;
         var nReject = 0;
-        function log10(x) {
-            return Math.log(x) / Math.LN10;
-        }
         // call to core integrator
         var nrd = Math.max(1, nrdens);
         var ncom = Math.max(1, (2 * km + 5) * nrdens);
@@ -205,6 +198,9 @@ var Solver = (function () {
                 yp.splice.apply(yp, [1, _this.n].concat(yp1));
         };
         var odxcor = function () {
+            var xOldd; // shared with contex
+            var hhh; // shared with contex
+            var kmit; // shared with contex
             var acceptStep = function (n) {
                 // Returns true if we should continue the integration. The only time false
                 // is returned is when the user's solution observation function has returned false,
@@ -213,23 +209,23 @@ var Solver = (function () {
                 x += h;
                 if (_this.denseOutput) {
                     // kmit = mu of the paper
-                    var kmit = 2 * kc - _this.interpolationFormulaDegree + 1;
+                    kmit = 2 * kc - _this.interpolationFormulaDegree + 1;
                     for (var i = 1; i <= nrd; ++i)
                         dens[i] = y[icom[i]];
-                    var xOldd = xOld;
-                    var hhh = h; // note: xOldd and hhh are part of /CONODX/
+                    xOldd = xOld;
+                    hhh = h; // note: xOldd and hhh are part of /CONODX/
                     for (var i = 1; i <= nrd; ++i)
                         dens[nrd + i] = h * dz[icom[i]];
                     var kln = 2 * nrd;
                     for (var i = 1; i <= nrd; ++i)
                         dens[kln + i] = t[1][icom[i]];
                     // compute solution at mid-point
-                    for (var j_1 = 2; j_1 <= kc; ++j_1) {
-                        var dblenj = nj[j_1];
-                        for (var l_1 = j_1; l_1 >= 2; --l_1) {
-                            var factor = Math.pow(dblenj / nj[l_1 - 1], 2) - 1;
+                    for (var j = 2; j <= kc; ++j) {
+                        var dblenj = nj[j];
+                        for (var l = j; l >= 2; --l) {
+                            var factor = Math.pow(dblenj / nj[l - 1], 2) - 1;
                             for (var i = 1; i <= nrd; ++i) {
-                                ySafe[l_1 - 1][i] = ySafe[l_1][i] + (ySafe[l_1][i] - ySafe[l_1 - 1][i]) / factor;
+                                ySafe[l - 1][i] = ySafe[l][i] + (ySafe[l][i] - ySafe[l - 1][i]) / factor;
                             }
                         }
                     }
@@ -254,12 +250,12 @@ var Solver = (function () {
                                 ySafe[kk][i] = fSafe[iPt][i] * facnj;
                             }
                         }
-                        for (var j_2 = kbeg + 1; j_2 <= kc; ++j_2) {
-                            dblenj = nj[j_2];
-                            for (var l_2 = j_2; l_2 >= kbeg + 1; --l_2) {
-                                var factor = Math.pow(dblenj / nj[l_2 - 1], 2) - 1;
+                        for (var j = kbeg + 1; j <= kc; ++j) {
+                            var dblenj = nj[j];
+                            for (var l = j; l >= kbeg + 1; --l) {
+                                var factor = Math.pow(dblenj / nj[l - 1], 2) - 1;
                                 for (var i = 1; i <= nrd; ++i) {
-                                    ySafe[l_2 - 1][i] = ySafe[l_2][i] + (ySafe[l_2][i] - ySafe[l_2 - 1][i]) / factor;
+                                    ySafe[l - 1][i] = ySafe[l][i] + (ySafe[l][i] - ySafe[l - 1][i]) / factor;
                                 }
                             }
                         }
@@ -274,7 +270,8 @@ var Solver = (function () {
                             var lend = iPoint[kk] + kmi + 1;
                             if (kmi === 1 && nSeq === 4)
                                 lend += 2;
-                            for (var l = lbeg; l >= lend; l -= 2) {
+                            var l = void 0;
+                            for (l = lbeg; l >= lend; l -= 2) {
                                 for (var i = 1; i <= nrd; ++i) {
                                     fSafe[l][i] -= fSafe[l - 2][i];
                                 }
@@ -289,7 +286,7 @@ var Solver = (function () {
                         for (var kk = (kmi + 2) / 2 | 0; kk <= kc; ++kk) {
                             var lbeg = iPoint[kk + 1] - 1;
                             var lend = iPoint[kk] + kmi + 2;
-                            for (l = lbeg; l >= lend; l -= 2) {
+                            for (var l = lbeg; l >= lend; l -= 2) {
                                 for (var i = 1; i <= nrd; ++i) {
                                     fSafe[l][i] -= fSafe[l - 2][i];
                                 }
@@ -371,7 +368,7 @@ var Solver = (function () {
             };
             var midex = function (j) {
                 var dy = Solver.dim(_this.n);
-                // Computes the jth line of the extrapolation table and 
+                // Computes the jth line of the extrapolation table and
                 // provides an estimation of the optional stepsize
                 var hj = h / nj[j];
                 // Euler starting step
@@ -436,8 +433,9 @@ var Solver = (function () {
                 if (j === 1)
                     return; // was j.eq.1
                 var dblenj = nj[j];
+                var fac;
                 for (var l = j; l > 1; --l) {
-                    var fac = Math.pow(dblenj / nj[l - 1], 2) - 1;
+                    fac = Math.pow(dblenj / nj[l - 1], 2) - 1;
                     for (var i = 1; i <= _this.n; ++i) {
                         t[l - 1][i] = t[l][i] + (t[l][i] - t[l - 1][i]) / fac;
                     }
@@ -470,11 +468,11 @@ var Solver = (function () {
                 var a = new Array(31); // zero-based: 0:30
                 // begin with Hermite interpolation
                 for (var i = 1; i <= n; ++i) {
-                    var y0 = y[i];
+                    var y0_1 = y[i];
                     var y1 = y[2 * n + i];
                     var yp0 = y[n + i];
                     var yp1 = y[3 * n + i];
-                    var yDiff = y1 - y0;
+                    var yDiff = y1 - y0_1;
                     var aspl = -yp1 + yDiff;
                     var bspl = yp0 - yDiff;
                     y[n + i] = yDiff;
@@ -483,7 +481,7 @@ var Solver = (function () {
                     if (imit < 0)
                         continue;
                     // compute the derivatives of Hermite at midpoint
-                    var ph0 = (y0 + y1) * 0.5 + 0.125 * (aspl + bspl);
+                    var ph0 = (y0_1 + y1) * 0.5 + 0.125 * (aspl + bspl);
                     var ph1 = yDiff + (aspl - bspl) * 0.25;
                     var ph2 = -(yp0 - yp1);
                     var ph3 = 6 * (bspl - aspl);
@@ -519,10 +517,10 @@ var Solver = (function () {
             var contex = function (xOld, h, imit, y, icom) {
                 return function (c, x) {
                     var i = 0;
-                    for (var j_3 = 1; j_3 <= nrd; ++j_3) {
+                    for (var j = 1; j <= nrd; ++j) {
                         // careful: customers describe components 0-based. We record indices 1-based.
-                        if (icom[j_3] === c + 1)
-                            i = j_3;
+                        if (icom[j] === c + 1)
+                            i = j;
                     }
                     if (i === 0)
                         throw new Error("no dense output available for component " + c);
@@ -558,7 +556,7 @@ var Solver = (function () {
             }
             // Initial preparations
             var posneg = xEnd - x >= 0 ? 1 : -1;
-            var k = Math.max(2, Math.min(km - 1, Math.floor(-log10(rTol[1] + 1e-40) * 0.6 + 1.5)));
+            var k = Math.max(2, Math.min(km - 1, Math.floor(-Solver.log10(rTol[1] + 1e-40) * 0.6 + 1.5)));
             var h = Math.max(Math.abs(_this.initialStepSize), 1e-4);
             h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2);
             var iPoint = Solver.dim(km + 1);
@@ -577,15 +575,15 @@ var Solver = (function () {
                     for (var mu = 1; mu <= 2 * km; ++mu) {
                         var errx = Math.sqrt(mu / (mu + 4)) * 0.5;
                         var prod = Math.pow(1 / (mu + 4), 2);
-                        for (var j_4 = 1; j_4 <= mu; ++j_4)
-                            prod *= errx / j_4;
+                        for (var j = 1; j <= mu; ++j)
+                            prod *= errx / j;
                         errfac[mu] = prod;
                     }
                     iPt = 0;
                 }
                 // check return value and abandon integration if called for
                 if (false === solOut(nAccept + 1, xOld, x, y.slice(1))) {
-                    return Outcome.EARLY_RETURN;
+                    return Outcome.EarlyReturn;
                 }
             }
             var err = 0;
@@ -599,18 +597,18 @@ var Solver = (function () {
             var kc = 0;
             var STATE;
             (function (STATE) {
-                STATE[STATE["START"] = 0] = "START";
-                STATE[STATE["BASIC_INTEGRATION_STEP"] = 1] = "BASIC_INTEGRATION_STEP";
-                STATE[STATE["CONVERGENCE_STEP"] = 2] = "CONVERGENCE_STEP";
-                STATE[STATE["HOPE_FOR_CONVERGENCE"] = 3] = "HOPE_FOR_CONVERGENCE";
-                STATE[STATE["ACCEPT"] = 4] = "ACCEPT";
-                STATE[STATE["REJECT"] = 5] = "REJECT";
+                STATE[STATE["Start"] = 0] = "Start";
+                STATE[STATE["BasicIntegrationStep"] = 1] = "BasicIntegrationStep";
+                STATE[STATE["ConvergenceStep"] = 2] = "ConvergenceStep";
+                STATE[STATE["HopeForConvergence"] = 3] = "HopeForConvergence";
+                STATE[STATE["Accept"] = 4] = "Accept";
+                STATE[STATE["Reject"] = 5] = "Reject";
             })(STATE || (STATE = {}));
-            var state = STATE.START;
+            var state = STATE.Start;
             loop: while (true) {
-                _this.debug && console.log('STATE', STATE[state], nStep, xOld, x, h, k, kc, hoptde);
+                _this.debug && console.log("STATE", STATE[state], nStep, xOld, x, h, k, kc, hoptde);
                 switch (state) {
-                    case STATE.START:
+                    case STATE.Start:
                         atov = false;
                         // Is xEnd reached in the next step?
                         if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * _this.uRound)
@@ -634,89 +632,89 @@ var Solver = (function () {
                                 if (atov)
                                     continue loop;
                                 if (j > 1 && err <= 1) {
-                                    state = STATE.ACCEPT;
+                                    state = STATE.Accept;
                                     continue loop;
                                 }
                             }
-                            state = STATE.HOPE_FOR_CONVERGENCE;
+                            state = STATE.HopeForConvergence;
                             continue;
                         }
-                        state = STATE.BASIC_INTEGRATION_STEP;
+                        state = STATE.BasicIntegrationStep;
                         continue;
-                    case STATE.BASIC_INTEGRATION_STEP:
+                    case STATE.BasicIntegrationStep:
                         // basic integration step
                         iPt = 0;
                         ++nStep;
                         if (nStep >= _this.maxSteps) {
-                            return Outcome.MAX_STEPS_EXCEEDED;
+                            return Outcome.MaxStepsExceeded;
                         }
                         kc = k - 1;
-                        for (var j_5 = 1; j_5 <= kc; ++j_5) {
-                            midex(j_5);
+                        for (var j = 1; j <= kc; ++j) {
+                            midex(j);
                             if (atov) {
-                                state = STATE.START;
+                                state = STATE.Start;
                                 continue loop;
                             }
                         }
                         // convergence monitor
                         if (k === 2 || reject) {
-                            state = STATE.CONVERGENCE_STEP;
+                            state = STATE.ConvergenceStep;
                         }
                         else {
                             if (err <= 1) {
-                                state = STATE.ACCEPT;
+                                state = STATE.Accept;
                             }
                             else if (err > Math.pow((nj[k + 1] * nj[k]) / 4, 2)) {
-                                state = STATE.REJECT;
+                                state = STATE.Reject;
                             }
                             else
-                                state = STATE.CONVERGENCE_STEP;
+                                state = STATE.ConvergenceStep;
                         }
                         continue;
-                    case STATE.CONVERGENCE_STEP:
+                    case STATE.ConvergenceStep:
                         midex(k);
                         if (atov) {
-                            state = STATE.START;
+                            state = STATE.Start;
                             continue;
                         }
                         kc = k;
                         if (err <= 1) {
-                            state = STATE.ACCEPT;
+                            state = STATE.Accept;
                             continue;
                         }
-                        state = STATE.HOPE_FOR_CONVERGENCE;
+                        state = STATE.HopeForConvergence;
                         continue;
-                    case STATE.HOPE_FOR_CONVERGENCE:
-                        // hope for convergence in line k+1
+                    case STATE.HopeForConvergence:
+                        // hope for convergence in line k + 1
                         if (err > Math.pow(nj[k + 1] / 2, 2)) {
-                            state = STATE.REJECT;
+                            state = STATE.Reject;
                             continue;
                         }
                         kc = k + 1;
                         midex(kc);
                         if (atov)
-                            state = STATE.START;
+                            state = STATE.Start;
                         else if (err > 1)
-                            state = STATE.REJECT;
+                            state = STATE.Reject;
                         else
-                            state = STATE.ACCEPT;
+                            state = STATE.Accept;
                         continue;
-                    case STATE.ACCEPT:
+                    case STATE.Accept:
                         if (!acceptStep(_this.n))
-                            return Outcome.EARLY_RETURN;
-                        state = STATE.START;
+                            return Outcome.EarlyReturn;
+                        state = STATE.Start;
                         continue;
-                    case STATE.REJECT:
+                    case STATE.Reject:
                         k = Math.min(k, kc, km - 1);
                         if (k > 2 && w[k - 1] < w[k] * _this.stepSizeFac3)
                             k -= 1;
                         ++nReject;
                         h = posneg * hh[k];
                         reject = true;
-                        state = STATE.BASIC_INTEGRATION_STEP;
+                        state = STATE.BasicIntegrationStep;
                 }
             }
-            return Outcome.CONVERGED;
+            return Outcome.Converged;
         };
         var outcome = odxcor();
         return {
@@ -729,6 +727,9 @@ var Solver = (function () {
             nEval: nEval
         };
     };
+    // return a 1-based array of length n. Initial values undefined.
+    Solver.dim = function (n) { return Array(n + 1); };
+    Solver.log10 = function (x) { return Math.log(x) / Math.LN10; };
     return Solver;
 }());
 exports.Solver = Solver;

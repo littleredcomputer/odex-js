@@ -58,7 +58,7 @@ describe('Odex', function () {
         s.maxSteps = 50;
         var y0 = [2, 0];
         var _a = s.solve(vanDerPol(0.1), 0, y0, 2), _b = _a.y, y1 = _b[0], y1p = _b[1], outcome = _a.outcome;
-        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.Converged); });
         it('worked for y', function () { return assert(Math.abs(y1 + 1.58184) < tol * 10); });
         it('worked for y\'', function () { return assert(Math.abs(y1p - 0.978449) < tol * 10); });
     });
@@ -68,18 +68,18 @@ describe('Odex', function () {
         s.absoluteTolerance = s.relativeTolerance = tol;
         var y0 = [1];
         var _a = s.solve(function (x, y) { return [y[0]]; }, 0, y0, 1), y1 = _a.y[0], outcome = _a.outcome;
-        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.Converged); });
         it('worked for y', function () { return assert(Math.abs(y1 - Math.exp(1)) < tol * 10); });
     });
     describe('y" = -y (sine/cosine)', function () {
         var s = new odex_1.Solver(2);
         var y0 = [0, 1];
         var _a = s.solve(trig, 0, y0, 1), _b = _a.y, y1 = _b[0], y1p = _b[1], outcome = _a.outcome;
-        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert.equal(outcome, odex_1.Outcome.Converged); });
         it('worked for y', function () { return assert(Math.abs(y1 - Math.sin(1)) < 1e-5); });
         it('worked for y\'', function () { return assert(Math.abs(y1p - Math.cos(1)) < 1e-5); });
         var c = s.solve(trig, 0, y0, 10);
-        it('converged: long range', function () { return assert.equal(c.outcome, odex_1.Outcome.CONVERGED); });
+        it('converged: long range', function () { return assert.equal(c.outcome, odex_1.Outcome.Converged); });
         it('worked for y', function () { return assert(Math.abs(c.y[0] - Math.sin(10)) < 1e-4); });
         it('worked for y\'', function () { return assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4); });
     });
@@ -93,14 +93,14 @@ describe('Odex', function () {
         s.initialStepSize = 1e-4;
         var y0 = [0.3550280539, -0.2588194038];
         var a = s.solve(airy0, 0, y0, 1);
-        it('worked', function () { return assert(a.outcome === odex_1.Outcome.CONVERGED); });
+        it('worked', function () { return assert(a.outcome === odex_1.Outcome.Converged); });
         it('1st kind: works for y', function () { return assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5); });
         it('1st kind: works for y\'', function () { return assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5); });
         // Airy equation of the second kind (or "Bairy equation"); this has different
         // initial conditions
         y0 = [0.6149266274, 0.4482883574];
         var b = s.solve(airy0, 0, y0, 1);
-        it('worked', function () { return assert(b.outcome === odex_1.Outcome.CONVERGED); });
+        it('worked', function () { return assert(b.outcome === odex_1.Outcome.Converged); });
         it('2nd kind: works for y', function () { return assert(Math.abs(b.y[0] - 1.207423595) < 1e-5); });
         it('2nd kind: works for y\'', function () { return assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5); });
     });
@@ -109,14 +109,14 @@ describe('Odex', function () {
         s.initialStepSize = 1e-4;
         var y0 = [0.3550280539, -0.2588194038];
         var a = s.solve(airy, 0, y0, 1);
-        it('worked', function () { return assert(a.outcome === odex_1.Outcome.CONVERGED); });
+        it('worked', function () { return assert(a.outcome === odex_1.Outcome.Converged); });
         it('1st kind: works for y', function () { return assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5); });
         it('1st kind: works for y\'', function () { return assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5); });
         // Airy equation of the second kind (or "Bairy equation"); this has different
         // initial conditions
         y0 = [0.6149266274, 0.4482883574];
         var b = s.solve(airy, 0, y0, 1);
-        it('worked', function () { return assert(b.outcome === odex_1.Outcome.CONVERGED); });
+        it('worked', function () { return assert(b.outcome === odex_1.Outcome.Converged); });
         it('2nd kind: works for y', function () { return assert(Math.abs(b.y[0] - 1.207423595) < 1e-5); });
         it('2nd kind: works for y\'', function () { return assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5); });
     });
@@ -124,17 +124,17 @@ describe('Odex', function () {
         var s = new odex_1.Solver(2);
         var y1 = [0.4400505857, 0.3251471008];
         var y2 = s.solve(bessel(1), 1, y1, 2);
-        it('converged', function () { return assert(y2.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(y2.outcome === odex_1.Outcome.Converged); });
         it('y', function () { return assert(Math.abs(y2.y[0] - 0.5767248078) < 1e-5); });
         it('y\'', function () { return assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5); });
         s.initialStepSize = 1e-6;
         var y3 = s.solve(bessel(1), 1, y1, 2);
-        it('converged', function () { return assert(y3.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(y3.outcome === odex_1.Outcome.Converged); });
         it('y (small step size)', function () { return assert(Math.abs(y3.y[0] - 0.5767248078) < 1e-6); });
         it('y\' (small step size)', function () { return assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6); });
         s.absoluteTolerance = s.relativeTolerance = 1e-12;
         var y4 = s.solve(bessel(1), 1, y1, 2);
-        it('converged', function () { return assert(y4.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(y4.outcome === odex_1.Outcome.Converged); });
         it('y (low tolerance)', function () { return assert(Math.abs(y4.y[0] - 0.5767248078) < 1e-10); });
         it('y\' (low tolerance)', function () { return assert(Math.abs(y4.y[1] + 0.06447162474) < 1e-10); });
     });
@@ -142,7 +142,7 @@ describe('Odex', function () {
         var s = new odex_1.Solver(2);
         s.maxSteps = 2;
         var o = s.solve(vanDerPol(0.1), 0, [2, 0], 10);
-        it('didn\' t converge', function () { return assert(o.outcome === odex_1.Outcome.MAX_STEPS_EXCEEDED); });
+        it('didn\' t converge', function () { return assert(o.outcome === odex_1.Outcome.MaxStepsExceeded); });
         it('tried', function () { return assert(o.nStep === s.maxSteps); });
     });
     describe('exits early when asked to', function () {
@@ -153,7 +153,7 @@ describe('Odex', function () {
             if (++evalCount === evalLimit)
                 return false;
         });
-        it('noticed the early exit', function () { return assert(o.outcome === odex_1.Outcome.EARLY_RETURN); });
+        it('noticed the early exit', function () { return assert(o.outcome === odex_1.Outcome.EarlyReturn); });
         it('took the right number of steps', function () { return assert(o.nStep === evalLimit - 1); });
     });
     describe('cosine (observer)', function () {
@@ -162,14 +162,14 @@ describe('Odex', function () {
             it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.cos(x)) < 1e-4); });
             //console.log('observed cos', Math.abs(y[0]-Math.cos(x)));
         });
-        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
     });
     describe('sine (observer)', function () {
         var s = new odex_1.Solver(2);
         var o = s.solve(trig, 0, [0, 1], 2 * Math.PI, function (n, xOld, x, y) {
             it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.sin(x)) < 1e-5); });
         });
-        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
     });
     describe('cosine (dense output)', function () {
         var s = new odex_1.Solver(2);
@@ -177,7 +177,7 @@ describe('Odex', function () {
         var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function () {
             //console.log('dense cos', Math.abs(y[0]-Math.cos(x)));
         });
-        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
     });
     describe('cosine (dense output, no error estimation)', function () {
         var s = new odex_1.Solver(2);
@@ -186,7 +186,7 @@ describe('Odex', function () {
         var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function () {
             //console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)));
         });
-        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
         it('evaluated f the correct number of times', function () { return assert(o.nEval === 183); });
         it('took the correct number of steps', function () { return assert(o.nStep === 8); });
         it('had no rejection steps', function () { return assert(o.nReject === 0); });
@@ -210,7 +210,7 @@ describe('Odex', function () {
                 _loop_1();
             }
         });
-        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
         it('evaluated f the correct number of times', function () { return assert(o.nEval === 101); });
         it('took the correct number of steps', function () { return assert(o.nStep === 7); });
         it('had no rejection steps', function () { return assert(o.nReject === 0); });
@@ -222,7 +222,7 @@ describe('Odex', function () {
             it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.cos(x)) < 2e-4); });
             //console.log('observed cos l.r.', n, x, y[0], Math.abs(y[0]-Math.cos(x)));
         });
-        it('converged', function () { return assert(o.outcome === odex_1.Outcome.CONVERGED); });
+        it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
         it('evaluated f the correct number of times', function () { return assert(o.nEval === 920); });
         it('took the correct number of steps', function () { return assert(o.nStep === 34); });
         it('had no rejection steps', function () { return assert(o.nReject === 0); });
