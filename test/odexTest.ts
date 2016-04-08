@@ -347,7 +347,6 @@ describe('Odex', () => {
     // Let y = sin(1/x). Then y' = -cos(1/x) / x^2.
     const left = 0.005;
     let s = new Solver(1);
-    let i = 0;
     s.denseOutput = true;
     s.absoluteTolerance = s.relativeTolerance = [1e-6];
     let o = s.solve((x, y) => [-Math.cos(1 / x) / (x * x)], left, [Math.sin(1 / left)], 2, s.grid(0.1, (x, y) => {

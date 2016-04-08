@@ -339,7 +339,6 @@ describe('Odex', function () {
         // Let y = sin(1/x). Then y' = -cos(1/x) / x^2.
         var left = 0.005;
         var s = new odex_1.Solver(1);
-        var i = 0;
         s.denseOutput = true;
         s.absoluteTolerance = s.relativeTolerance = [1e-6];
         var o = s.solve(function (x, y) { return [-Math.cos(1 / x) / (x * x)]; }, left, [Math.sin(1 / left)], 2, s.grid(0.1, function (x, y) {
