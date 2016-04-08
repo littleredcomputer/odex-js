@@ -19,7 +19,7 @@
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-var odex_1 = require("../src/odex");
+var odex_1 = require('../src/odex');
 var assert = require('power-assert');
 describe('Odex', function () {
     var airy0 = function (x, y, yp) {
@@ -28,9 +28,9 @@ describe('Odex', function () {
         return true;
     };
     var airy = function (x, y) { return [y[1], x * y[0]]; };
-    var vanDerPol = function (eps) { return function (x, y) { return [
+    var vanDerPol = function (e) { return function (x, y) { return [
         y[1],
-        ((1 - Math.pow(y[0], 2)) * y[1] - y[0]) / eps
+        ((1 - Math.pow(y[0], 2)) * y[1] - y[0]) / e
     ]; }; };
     var bessel = function (a) { return function (x, y) {
         var xsq = x * x;
@@ -62,7 +62,7 @@ describe('Odex', function () {
         it('worked for y', function () { return assert(Math.abs(y1 + 1.58184) < tol * 10); });
         it('worked for y\'', function () { return assert(Math.abs(y1p - 0.978449) < tol * 10); });
     });
-    describe('y\' = y, (exp)', function () {
+    describe("y' = y, (exp)", function () {
         var s = new odex_1.Solver(1);
         var tol = 1e-8;
         s.absoluteTolerance = s.relativeTolerance = tol;
@@ -160,7 +160,7 @@ describe('Odex', function () {
         var s = new odex_1.Solver(2);
         var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function (n, xOld, x, y) {
             it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.cos(x)) < 1e-4); });
-            //console.log('observed cos', Math.abs(y[0]-Math.cos(x)));
+            // console.log('observed cos', Math.abs(y[0]-Math.cos(x)));
         });
         it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
     });
@@ -175,7 +175,7 @@ describe('Odex', function () {
         var s = new odex_1.Solver(2);
         s.denseOutput = true;
         var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function () {
-            //console.log('dense cos', Math.abs(y[0]-Math.cos(x)));
+            // console.log('dense cos', Math.abs(y[0]-Math.cos(x)));
         });
         it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
     });
@@ -184,7 +184,7 @@ describe('Odex', function () {
         s.denseOutput = true;
         s.denseOutputErrorEstimator = false;
         var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function () {
-            //console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)));
+            // console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)));
         });
         it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
         it('evaluated f the correct number of times', function () { return assert(o.nEval === 183); });
@@ -201,7 +201,7 @@ describe('Odex', function () {
                 var k = current;
                 var v = f(0, current);
                 var vp = f(1, current);
-                //console.log('eval', xOld, x, current, v, Math.abs(v-Math.cos(current)));
+                // console.log('eval', xOld, x, current, v, Math.abs(v-Math.cos(current)));
                 it('is accurate at interpolated grid point', function () { return assert(Math.abs(v - Math.cos(k)) < 1e-5); });
                 it('derivative is accurate at interpolated grid point', function () { return assert(Math.abs(vp + Math.sin(k)) < 1e-5); });
                 current += grid;
@@ -220,7 +220,7 @@ describe('Odex', function () {
         s.denseOutput = false;
         var o = s.solve(trig, 0, [1, 0], 16 * Math.PI, function (n, xOld, x, y) {
             it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.cos(x)) < 2e-4); });
-            //console.log('observed cos l.r.', n, x, y[0], Math.abs(y[0]-Math.cos(x)));
+            // console.log('observed cos l.r.', n, x, y[0], Math.abs(y[0]-Math.cos(x)));
         });
         it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
         it('evaluated f the correct number of times', function () { return assert(o.nEval === 920); });
@@ -231,39 +231,53 @@ describe('Odex', function () {
         it('throws if maxSteps is <= 0', function () {
             var s = new odex_1.Solver(2);
             s.maxSteps = -2;
-            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+            assert.throws(function () {
+                s.solve(trig, 0, [1, 0], 1);
+            }, Error);
         });
         it('throws if maxExtrapolationColumns is <= 2', function () {
             var s = new odex_1.Solver(2);
             s.maxExtrapolationColumns = 1;
-            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+            assert.throws(function () {
+                s.solve(trig, 0, [1, 0], 1);
+            }, Error);
         });
         it('throws for dense-output-incompatible step sequence', function () {
             var s = new odex_1.Solver(2);
             s.stepSizeSequence = 1;
             s.denseOutput = true;
-            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+            assert.throws(function () {
+                s.solve(trig, 0, [1, 0], 1);
+            }, Error);
         });
         it('throws when dense output is requested but no observer function is given', function () {
             var s = new odex_1.Solver(2);
             s.denseOutput = true;
-            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+            assert.throws(function () {
+                s.solve(trig, 0, [1, 0], 1);
+            }, Error);
         });
         it('throws for bad interpolation formula degree', function () {
             var s = new odex_1.Solver(2);
             s.interpolationFormulaDegree = 99;
-            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+            assert.throws(function () {
+                s.solve(trig, 0, [1, 0], 1);
+            }, Error);
         });
         it('throws for bad uRound', function () {
             var s = new odex_1.Solver(1);
             s.uRound = Math.PI;
-            assert.throws(function () { s.solve(trig, 0, [1, 0], 1); }, Error);
+            assert.throws(function () {
+                s.solve(trig, 0, [1, 0], 1);
+            }, Error);
         });
         it('throws for bad dense component', function () {
             var s = new odex_1.Solver(2);
             s.denseOutput = true;
             s.denseComponents = [5];
-            assert.throws(function () { s.solve(trig, 0, [1, 0], 1, function () { return 0; }); }, Error);
+            assert.throws(function () {
+                s.solve(trig, 0, [1, 0], 1, function () { return 0; });
+            }, Error);
         });
     });
     describe('requesting specific dense output component', function () {
@@ -319,6 +333,20 @@ describe('Odex', function () {
             it('works for y1 at grid point ' + i, function () { return assert(diff < 1e-4); });
             ++i;
         }));
+    });
+    describe("Topologist's sine function", function () {
+        // Here we supply a differential equation designed to test the limits.
+        // Let y = sin(1/x). Then y' = -cos(1/x) / x^2.
+        var left = 0.005;
+        var s = new odex_1.Solver(1);
+        var i = 0;
+        s.denseOutput = true;
+        s.absoluteTolerance = s.relativeTolerance = [1e-6];
+        var o = s.solve(function (x, y) { return [-Math.cos(1 / x) / (x * x)]; }, left, [Math.sin(1 / left)], 2, s.grid(0.1, function (x, y) {
+            var diff = Math.abs(y[0] - Math.sin(1 / x));
+            it('works for y at grid point ' + x, function () { return assert(diff < 1e-4); });
+        }));
+        it('rejected some steps', function () { return assert(o.nReject > 0); });
     });
 });
 //# sourceMappingURL=odexTest.js.map

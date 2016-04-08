@@ -110,7 +110,8 @@ var Solver = (function () {
                 for (var i = 1; i <= n; ++i)
                     a[i] = 4 * i;
                 break;
-            default: throw new Error("invalid stepSizeSequence selected");
+            default:
+                throw new Error('invalid stepSizeSequence selected');
         }
         return a;
     };
@@ -124,17 +125,17 @@ var Solver = (function () {
         var yh1 = Solver.dim(this.n);
         var yh2 = Solver.dim(this.n);
         if (this.maxSteps <= 0)
-            throw new Error("maxSteps must be positive");
+            throw new Error('maxSteps must be positive');
         var km = this.maxExtrapolationColumns;
         if (km <= 2)
-            throw new Error("maxExtrapolationColumns must be > 2");
+            throw new Error('maxExtrapolationColumns must be > 2');
         var nSeq = this.stepSizeSequence || (this.denseOutput ? 4 : 1);
         if (nSeq <= 3 && this.denseOutput)
-            throw new Error("stepSizeSequence incompatible with denseOutput");
+            throw new Error('stepSizeSequence incompatible with denseOutput');
         if (this.denseOutput && !solOut)
-            throw new Error("denseOutput requires a solution observer function");
+            throw new Error('denseOutput requires a solution observer function');
         if (this.interpolationFormulaDegree <= 0 || this.interpolationFormulaDegree >= 7)
-            throw new Error("bad interpolationFormulaDegree");
+            throw new Error('bad interpolationFormulaDegree');
         var icom = [0]; // icom will be 1-based, so start with a pad entry.
         var nrdens = 0;
         if (this.denseOutput) {
@@ -143,7 +144,7 @@ var Solver = (function () {
                     var c = _a[_i];
                     // convert dense components requested into one-based indexing.
                     if (c < 0 || c > this.n)
-                        throw new Error("bad dense component: " + c);
+                        throw new Error('bad dense component: ' + c);
                     icom.push(c + 1);
                     ++nrdens;
                 }
@@ -158,14 +159,14 @@ var Solver = (function () {
             }
         }
         if (this.uRound <= 1e-35 || this.uRound > 1)
-            throw new Error("suspicious value of uRound");
+            throw new Error('suspicious value of uRound');
         var hMax = Math.abs(this.maxStepSize || xEnd - x);
         var lfSafe = 2 * km * km + km;
         function expandToArray(x, n) {
             // If x is an array, return a 1-based copy of it. If x is a number, return a new 1-based array
             // consisting of n copies of the number.
             var tolArray = [0];
-            if (x instanceof Array) {
+            if (Array.isArray(x)) {
                 return tolArray.concat(x);
             }
             else {
@@ -190,10 +191,8 @@ var Solver = (function () {
         var F = function (x, y, yp) {
             var yp1 = yp.slice(1);
             var ret = f(x, y.slice(1), yp1);
-            if (ret instanceof Array)
+            if (Array.isArray(ret))
                 yp.splice.apply(yp, [1, _this.n].concat(ret));
-            else if (ret === false)
-                return false;
             else
                 yp.splice.apply(yp, [1, _this.n].concat(yp1));
         };
@@ -523,7 +522,7 @@ var Solver = (function () {
                             i = j;
                     }
                     if (i === 0)
-                        throw new Error("no dense output available for component " + c);
+                        throw new Error('no dense output available for component ' + c);
                     var theta = (x - xOld) / h;
                     var theta1 = 1 - theta;
                     var phthet = y[i] + theta * (y[nrd + i] + theta1 * (y[2 * nrd + i] * theta + y[3 * nrd + i] * theta1));
@@ -606,7 +605,7 @@ var Solver = (function () {
             })(STATE || (STATE = {}));
             var state = STATE.Start;
             loop: while (true) {
-                _this.debug && console.log("STATE", STATE[state], nStep, xOld, x, h, k, kc, hoptde);
+                _this.debug && console.log('STATE', STATE[state], nStep, xOld, x, h, k, kc, hoptde);
                 switch (state) {
                     case STATE.Start:
                         atov = false;
