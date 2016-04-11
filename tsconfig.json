@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es5",
+    "noImplicitAny": true,
+    "sourceMap": true
+  },
+  "exclude": [
+    "node_modules"
+  ],
+  "files": [
+    "src/odex.ts",
+    "test/odexTest.ts"
+  ]
+}

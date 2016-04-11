@@ -17,19 +17,20 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-interface Function {     // Function computing the value of Y' = F(x,Y)
-  (x: number,        // input x value
-   y: number[],      // input y value
-   yp?: number[])      // return y' value (deprecated)
-    : number[]|boolean;  // output y' values (Array of length n) or false to halt integration
+interface Function {  // Function computing the value of Y' = F(x,Y)
+  (x: number,         // input x value
+   y: number[],       // input y value
+   yp?: number[])     // return y' value (deprecated)
+    : number[]|void;  // output y' values (Array of length n)
 }
 
-interface OutputFunction {                        // value callback
-  (nr: number,                                  // step number
-   xold: number,                                // left edge of solution interval
-   x: number,                                   // right edge of solution interval (y = F(x))
-   y: number[],                                 // F(x)
-   dense?: (c: number, x: number) => number);   // dense interpolator. Valid in the range [x, xold).
+interface OutputFunction {                    // value callback
+  (nr: number,                                // step number
+   xold: number,                              // left edge of solution interval
+   x: number,                                 // right edge of solution interval (y = F(x))
+   y: number[],                               // F(x)
+   dense?: (c: number, x: number) => number)  // dense interpolator. Valid in the range [x, xold).
+    : boolean|void;                           // return false to halt integration
 }
 
 export enum Outcome {
@@ -39,28 +40,28 @@ export enum Outcome {
 }
 
 export class Solver {
-  n: number;                          // dimension of the system
-  uRound: number;                     // WORK(1), machine epsilon. (WORK, IWORK are references to odex.f)
-  maxSteps: number;                   // IWORK(1), positive integer
-  initialStepSize: number;            // H
-  maxStepSize: number;                // WORK(2), maximal step size, default xEnd - x
-  maxExtrapolationColumns: number;    // IWORK(2), KM, positive integer
-  stepSizeSequence: number;           // IWORK(3), in [1..5]
-  stabilityCheckCount: number;        // IWORK(4), in
-  stabilityCheckTableLines: number;   // IWORK(5), positive integer
-  denseOutput: boolean;               // IOUT >= 2, true means dense output interpolator provided to solOut
-  denseOutputErrorEstimator: boolean; // IWORK(6), reversed sense from the FORTRAN code
-  denseComponents: number[];          // IWORK(8) & IWORK(21,...), components for which dense output is required
-  interpolationFormulaDegree: number; // IWORK(7), µ = 2 * k - interpolationFormulaDegree + 1 [1..6], default 4
-  stepSizeReductionFactor: number;    // WORK(3), default 0.5
-  stepSizeFac1: number;               // WORK(4)
-  stepSizeFac2: number;               // WORK(5)
-  stepSizeFac3: number;               // WORK(6)
-  stepSizeFac4: number;               // WORK(7)
-  stepSafetyFactor1: number;          // WORK(8)
-  stepSafetyFactor2: number;          // WORK(9)
-  relativeTolerance: number|number[]; // RTOL. Can be a scalar or vector of length N.
-  absoluteTolerance: number|number[]; // ATOL. Can be a scalar or vector of length N.
+  n: number;                           // dimension of the system
+  uRound: number;                      // WORK(1), machine epsilon. (WORK, IWORK are references to odex.f)
+  maxSteps: number;                    // IWORK(1), positive integer
+  initialStepSize: number;             // H
+  maxStepSize: number;                 // WORK(2), maximal step size, default xEnd - x
+  maxExtrapolationColumns: number;     // IWORK(2), KM, positive integer
+  stepSizeSequence: number;            // IWORK(3), in [1..5]
+  stabilityCheckCount: number;         // IWORK(4), in
+  stabilityCheckTableLines: number;    // IWORK(5), positive integer
+  denseOutput: boolean;                // IOUT >= 2, true means dense output interpolator provided to solOut
+  denseOutputErrorEstimator: boolean;  // IWORK(6), reversed sense from the FORTRAN code
+  denseComponents: number[];           // IWORK(8) & IWORK(21,...), components for which dense output is required
+  interpolationFormulaDegree: number;  // IWORK(7), µ = 2 * k - interpolationFormulaDegree + 1 [1..6], default 4
+  stepSizeReductionFactor: number;     // WORK(3), default 0.5
+  stepSizeFac1: number;                // WORK(4)
+  stepSizeFac2: number;                // WORK(5)
+  stepSizeFac3: number;                // WORK(6)
+  stepSizeFac4: number;                // WORK(7)
+  stepSafetyFactor1: number;           // WORK(8)
+  stepSafetyFactor2: number;           // WORK(9)
+  relativeTolerance: number|number[];  // RTOL. Can be a scalar or vector of length N.
+  absoluteTolerance: number|number[];  // ATOL. Can be a scalar or vector of length N.
   debug: boolean;
 
   constructor(n: number) {
@@ -96,15 +97,15 @@ export class Solver {
       components = [];
       for (let i = 0; i < this.n; ++i) components.push(i);
     }
-    let t;
-    return (n, xOld, x, y, interpolate) => {
+    let t: number;
+    return (n: number, xOld: number, x: number, y: number[], interpolate: (i: number, x: number) => number) => {
       if (n === 1) {
         out(x, y);
         t = x + dt;
         return;
       }
       while (t <= x) {
-        let yf = [];
+        let yf: number[] = [];
         for (let i of components) {
           yf.push(interpolate(i, t));
         }
@@ -115,8 +116,8 @@ export class Solver {
   }
 
   // return a 1-based array of length n. Initial values undefined.
-  private static dim = n => Array(n + 1);
-  private static log10 = x => Math.log(x) / Math.LN10;
+  private static dim = (n: number) => Array(n + 1);
+  private static log10 = (x: number) => Math.log(x) / Math.LN10;
 
   // Make a 1-based 2D array, with r rows and c columns. The initial values are undefined.
   private static dim2(r: number, c: number): number[][] {
@@ -225,7 +226,7 @@ export class Solver {
     // now return: nfcn, nstep, naccept, nreject XXX
 
     // Wrap f in a function F which hides the one-based indexing from the customers.
-    const F = (x, y, yp) => {
+    const F = (x: number, y: number[], yp: number[]) => {
       let yp1 = yp.slice(1);
       let ret = f(x, y.slice(1), yp1);
       if (Array.isArray(ret)) yp.splice(1, this.n, ...ret);
@@ -233,9 +234,9 @@ export class Solver {
     };
 
     let odxcor = (): Outcome => {
-      let xOldd; // shared with contex
-      let hhh;   // shared with contex
-      let kmit;  // shared with contex
+      let xOldd: number; // shared with contex
+      let hhh: number;   // shared with contex
+      let kmit: number;  // shared with contex
 
       let acceptStep = (n: number): boolean => {   // label 60
         // Returns true if we should continue the integration. The only time false
@@ -297,7 +298,7 @@ export class Solver {
               let lbeg = iPoint[kk + 1];
               let lend = iPoint[kk] + kmi + 1;
               if (kmi === 1 && nSeq === 4) lend += 2;
-              let l;
+              let l: number;
               for (l = lbeg; l >= lend; l -= 2) {
                 for (let i = 1; i <= nrd; ++i) {
                   fSafe[l][i] -= fSafe[l - 2][i];
@@ -344,7 +345,7 @@ export class Solver {
               this.denseOutput && contex(xOldd, hhh, kmit, dens, icom)) === false) return false;
         }
         // compute optimal order
-        let kopt;
+        let kopt: number;
         if (kc === 2) {
           kopt = Math.min(3, km - 1);
           if (reject) kopt = 2;
@@ -449,7 +450,7 @@ export class Solver {
         // polynomial extrapolation
         if (j === 1) return; // was j.eq.1
         const dblenj = nj[j];
-        let fac;
+        let fac: number;
         for (let l = j; l > 1; --l) {
           fac = Math.pow(dblenj / nj[l - 1], 2) - 1;
           for (let i = 1; i <= this.n; ++i) {

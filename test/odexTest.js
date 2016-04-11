@@ -25,7 +25,6 @@ describe('Odex', function () {
     var airy0 = function (x, y, yp) {
         yp[0] = y[1];
         yp[1] = x * y[0];
-        return true;
     };
     var airy = function (x, y) { return [y[1], x * y[0]]; };
     var vanDerPol = function (e) { return function (x, y) { return [
@@ -60,7 +59,7 @@ describe('Odex', function () {
         var _a = s.solve(vanDerPol(0.1), 0, y0, 2), _b = _a.y, y1 = _b[0], y1p = _b[1], outcome = _a.outcome;
         it('converged', function () { return assert.equal(outcome, odex_1.Outcome.Converged); });
         it('worked for y', function () { return assert(Math.abs(y1 + 1.58184) < tol * 10); });
-        it('worked for y\'', function () { return assert(Math.abs(y1p - 0.978449) < tol * 10); });
+        it("worked for y'", function () { return assert(Math.abs(y1p - 0.978449) < tol * 10); });
     });
     describe("y' = y, (exp)", function () {
         var s = new odex_1.Solver(1);
@@ -77,11 +76,11 @@ describe('Odex', function () {
         var _a = s.solve(trig, 0, y0, 1), _b = _a.y, y1 = _b[0], y1p = _b[1], outcome = _a.outcome;
         it('converged', function () { return assert.equal(outcome, odex_1.Outcome.Converged); });
         it('worked for y', function () { return assert(Math.abs(y1 - Math.sin(1)) < 1e-5); });
-        it('worked for y\'', function () { return assert(Math.abs(y1p - Math.cos(1)) < 1e-5); });
+        it("worked for y'", function () { return assert(Math.abs(y1p - Math.cos(1)) < 1e-5); });
         var c = s.solve(trig, 0, y0, 10);
         it('converged: long range', function () { return assert.equal(c.outcome, odex_1.Outcome.Converged); });
         it('worked for y', function () { return assert(Math.abs(c.y[0] - Math.sin(10)) < 1e-4); });
-        it('worked for y\'', function () { return assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4); });
+        it("worked for y'", function () { return assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4); });
     });
     describe('Airy equation y" = xy (old function style)', function () {
         // Note: we now prefer the form of the DE function to return
@@ -95,7 +94,7 @@ describe('Odex', function () {
         var a = s.solve(airy0, 0, y0, 1);
         it('worked', function () { return assert(a.outcome === odex_1.Outcome.Converged); });
         it('1st kind: works for y', function () { return assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5); });
-        it('1st kind: works for y\'', function () { return assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5); });
+        it("1st kind: works for y'", function () { return assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5); });
         // Airy equation of the second kind (or "Bairy equation"); this has different
         // initial conditions
         y0 = [0.6149266274, 0.4482883574];
@@ -111,14 +110,14 @@ describe('Odex', function () {
         var a = s.solve(airy, 0, y0, 1);
         it('worked', function () { return assert(a.outcome === odex_1.Outcome.Converged); });
         it('1st kind: works for y', function () { return assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5); });
-        it('1st kind: works for y\'', function () { return assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5); });
+        it("1st kind: works for y'", function () { return assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5); });
         // Airy equation of the second kind (or "Bairy equation"); this has different
         // initial conditions
         y0 = [0.6149266274, 0.4482883574];
         var b = s.solve(airy, 0, y0, 1);
         it('worked', function () { return assert(b.outcome === odex_1.Outcome.Converged); });
         it('2nd kind: works for y', function () { return assert(Math.abs(b.y[0] - 1.207423595) < 1e-5); });
-        it('2nd kind: works for y\'', function () { return assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5); });
+        it("2nd kind: works for y'", function () { return assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5); });
     });
     describe('Bessel equation x^2 y" + x y\' + (x^2-a^2) y = 0', function () {
         var s = new odex_1.Solver(2);
@@ -126,12 +125,12 @@ describe('Odex', function () {
         var y2 = s.solve(bessel(1), 1, y1, 2);
         it('converged', function () { return assert(y2.outcome === odex_1.Outcome.Converged); });
         it('y', function () { return assert(Math.abs(y2.y[0] - 0.5767248078) < 1e-5); });
-        it('y\'', function () { return assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5); });
+        it("y\"", function () { return assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5); });
         s.initialStepSize = 1e-6;
         var y3 = s.solve(bessel(1), 1, y1, 2);
         it('converged', function () { return assert(y3.outcome === odex_1.Outcome.Converged); });
         it('y (small step size)', function () { return assert(Math.abs(y3.y[0] - 0.5767248078) < 1e-6); });
-        it('y\' (small step size)', function () { return assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6); });
+        it("y' (small step size)", function () { return assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6); });
         s.absoluteTolerance = s.relativeTolerance = 1e-12;
         var y4 = s.solve(bessel(1), 1, y1, 2);
         it('converged', function () { return assert(y4.outcome === odex_1.Outcome.Converged); });
@@ -276,7 +275,7 @@ describe('Odex', function () {
             s.denseOutput = true;
             s.denseComponents = [5];
             assert.throws(function () {
-                s.solve(trig, 0, [1, 0], 1, function () { return 0; });
+                s.solve(trig, 0, [1, 0], 1, function () { return undefined; });
             }, Error);
         });
     });

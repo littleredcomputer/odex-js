@@ -24,30 +24,29 @@ import {Solver, Outcome} from '../src/odex';
 import assert = require('power-assert');
 
 describe('Odex', () => {
-  let airy0 = (x, y, yp) => {
+  let airy0 = (x: number, y: number[], yp: number[]) => {
     yp[0] = y[1];
     yp[1] = x * y[0];
-    return true;
   };
 
-  let airy = (x, y) => [y[1], x * y[0]];
+  let airy = (x: number, y: number[]) => [y[1], x * y[0]];
 
-  let vanDerPol = e => (x, y) => [
+  let vanDerPol = (e: number) => (x: number, y: number[]) => [
     y[1],
     ((1 - Math.pow(y[0], 2)) * y[1] - y[0]) / e
   ];
 
-  let bessel = a => (x, y) => {
+  let bessel = (a: number) => (x: number, y: number[]) => {
     let xsq = x * x;
     return [y[1], ((a * a - xsq) * y[0] - x * y[1]) / xsq];
   };
 
-  let lotkaVolterra = (a, b, c, d) => (x, y) => [
+  let lotkaVolterra = (a: number, b: number, c: number, d: number) => (x: number, y: number[]) => [
     a * y[0] - b * y[0] * y[1],
     c * y[0] * y[1] - d * y[1]
   ];
 
-  let trig = (x, y) => [y[1], -y[0]];
+  let trig = (x: number, y: number[]) => [y[1], -y[0]];
 
   describe('stepSizeSequence', () => {
     it('is correct for Type 1', () => assert.deepEqual([0, 2, 4, 6, 8, 10, 12, 14, 16], Solver.stepSizeSequence(1, 8)));
@@ -68,7 +67,7 @@ describe('Odex', () => {
     const {y: [y1, y1p], outcome: outcome} = s.solve(vanDerPol(0.1), 0, y0, 2);
     it('converged', () => assert.equal(outcome, Outcome.Converged));
     it('worked for y', () => assert(Math.abs(y1 + 1.58184) < tol * 10));
-    it('worked for y\'', () => assert(Math.abs(y1p - 0.978449) < tol * 10));
+    it(`worked for y'`, () => assert(Math.abs(y1p - 0.978449) < tol * 10));
 
   });
   describe(`y' = y, (exp)`, () => {
@@ -86,12 +85,12 @@ describe('Odex', () => {
     let {y: [y1, y1p], outcome: outcome} = s.solve(trig, 0, y0, 1);
     it('converged', () => assert.equal(outcome, Outcome.Converged));
     it('worked for y', () => assert(Math.abs(y1 - Math.sin(1)) < 1e-5));
-    it('worked for y\'', () => assert(Math.abs(y1p - Math.cos(1)) < 1e-5));
+    it(`worked for y'`, () => assert(Math.abs(y1p - Math.cos(1)) < 1e-5));
 
     let c = s.solve(trig, 0, y0, 10);
     it('converged: long range', () => assert.equal(c.outcome, Outcome.Converged));
     it('worked for y', () => assert(Math.abs(c.y[0] - Math.sin(10)) < 1e-4));
-    it('worked for y\'', () => assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4));
+    it(`worked for y'`, () => assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4));
   });
   describe('Airy equation y" = xy (old function style)', () => {
     // Note: we now prefer the form of the DE function to return
@@ -105,7 +104,7 @@ describe('Odex', () => {
     let a = s.solve(airy0, 0, y0, 1);
     it('worked', () => assert(a.outcome === Outcome.Converged));
     it('1st kind: works for y', () => assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5));
-    it('1st kind: works for y\'', () => assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5));
+    it(`1st kind: works for y'`, () => assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5));
     // Airy equation of the second kind (or "Bairy equation"); this has different
     // initial conditions
     y0 = [0.6149266274, 0.4482883574];
@@ -121,14 +120,14 @@ describe('Odex', () => {
     let a = s.solve(airy, 0, y0, 1);
     it('worked', () => assert(a.outcome === Outcome.Converged));
     it('1st kind: works for y', () => assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5));
-    it('1st kind: works for y\'', () => assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5));
+    it(`1st kind: works for y'`, () => assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5));
     // Airy equation of the second kind (or "Bairy equation"); this has different
     // initial conditions
     y0 = [0.6149266274, 0.4482883574];
     let b = s.solve(airy, 0, y0, 1);
     it('worked', () => assert(b.outcome === Outcome.Converged));
     it('2nd kind: works for y', () => assert(Math.abs(b.y[0] - 1.207423595) < 1e-5));
-    it('2nd kind: works for y\'', () => assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5));
+    it(`2nd kind: works for y'`, () => assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5));
   });
   describe('Bessel equation x^2 y" + x y\' + (x^2-a^2) y = 0', () => {
     let s = new Solver(2);
@@ -136,12 +135,12 @@ describe('Odex', () => {
     let y2 = s.solve(bessel(1), 1, y1, 2);
     it('converged', () => assert(y2.outcome === Outcome.Converged));
     it('y', () => assert(Math.abs(y2.y[0] - 0.5767248078) < 1e-5));
-    it('y\'', () => assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5));
+    it(`y"`, () => assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5));
     s.initialStepSize = 1e-6;
     let y3 = s.solve(bessel(1), 1, y1, 2);
     it('converged', () => assert(y3.outcome === Outcome.Converged));
     it('y (small step size)', () => assert(Math.abs(y3.y[0] - 0.5767248078) < 1e-6));
-    it('y\' (small step size)', () => assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6));
+    it(`y' (small step size)`, () => assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6));
     s.absoluteTolerance = s.relativeTolerance = 1e-12;
     let y4 = s.solve(bessel(1), 1, y1, 2);
     it('converged', () => assert(y4.outcome === Outcome.Converged));
@@ -284,7 +283,7 @@ describe('Odex', () => {
       s.denseOutput = true;
       s.denseComponents = [5];
       assert.throws(() => {
-        s.solve(trig, 0, [1, 0], 1, () => 0);
+        s.solve(trig, 0, [1, 0], 1, () => undefined);
       }, Error);
     });
   });
@@ -292,7 +291,7 @@ describe('Odex', () => {
     let s = new Solver(2);
     s.denseComponents = [1];  // we only want y', e.g., -sin(x), densely output
     s.denseOutput = true;
-    let component = k => {
+    let component = (k: number) => {
       let diff = 1e10;
       s.solve(trig, 0, [1, 0], 1, (n, xOld, x, y, f) => {
         if (x > 0) {
