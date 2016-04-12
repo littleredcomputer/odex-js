@@ -159,7 +159,7 @@ describe('Odex', function () {
         var s = new odex_1.Solver(2);
         var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function (n, xOld, x, y) {
             it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.cos(x)) < 1e-4); });
-            // console.log('observed cos', Math.abs(y[0]-Math.cos(x)));
+            // console.log('observed cos', Math.abs(y[0]-Math.cos(x)))
         });
         it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
     });
@@ -174,7 +174,7 @@ describe('Odex', function () {
         var s = new odex_1.Solver(2);
         s.denseOutput = true;
         var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function () {
-            // console.log('dense cos', Math.abs(y[0]-Math.cos(x)));
+            // console.log('dense cos', Math.abs(y[0]-Math.cos(x)))
         });
         it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
     });
@@ -183,7 +183,7 @@ describe('Odex', function () {
         s.denseOutput = true;
         s.denseOutputErrorEstimator = false;
         var o = s.solve(trig, 0, [1, 0], 2 * Math.PI, function () {
-            // console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)));
+            // console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)))
         });
         it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
         it('evaluated f the correct number of times', function () { return assert(o.nEval === 183); });
@@ -200,7 +200,7 @@ describe('Odex', function () {
                 var k = current;
                 var v = f(0, current);
                 var vp = f(1, current);
-                // console.log('eval', xOld, x, current, v, Math.abs(v-Math.cos(current)));
+                // console.log('eval', xOld, x, current, v, Math.abs(v-Math.cos(current)))
                 it('is accurate at interpolated grid point', function () { return assert(Math.abs(v - Math.cos(k)) < 1e-5); });
                 it('derivative is accurate at interpolated grid point', function () { return assert(Math.abs(vp + Math.sin(k)) < 1e-5); });
                 current += grid;
@@ -219,7 +219,7 @@ describe('Odex', function () {
         s.denseOutput = false;
         var o = s.solve(trig, 0, [1, 0], 16 * Math.PI, function (n, xOld, x, y) {
             it('is accurate at grid point ' + n, function () { return assert(Math.abs(y[0] - Math.cos(x)) < 2e-4); });
-            // console.log('observed cos l.r.', n, x, y[0], Math.abs(y[0]-Math.cos(x)));
+            // console.log('observed cos l.r.', n, x, y[0], Math.abs(y[0]-Math.cos(x)))
         });
         it('converged', function () { return assert(o.outcome === odex_1.Outcome.Converged); });
         it('evaluated f the correct number of times', function () { return assert(o.nEval === 920); });
@@ -304,7 +304,7 @@ describe('Odex', function () {
         //    y2'[x] == c y1[x] y2[x] - d y2[x],
         //    y1[0] == 1,
         //    y2[0] == 1},
-        //  {y1, y2}, {x, 0, 25}];
+        //  {y1, y2}, {x, 0, 25}]
         // Table[{y1[t], y2[t]} /. LV[2/3, 4/3, 1, 1], {t, 0, 15}]
         var data = [
             [1., 1.],

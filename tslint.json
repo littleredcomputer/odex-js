@@ -25,7 +25,7 @@
         ],
         "semicolon": [
             true,
-            "always"
+            "never"
         ],
         "triple-equals": [
             true,

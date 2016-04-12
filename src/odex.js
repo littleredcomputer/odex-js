@@ -197,9 +197,10 @@ var Solver = (function () {
                 yp.splice.apply(yp, [1, _this.n].concat(yp1));
         };
         var odxcor = function () {
-            var xOldd; // shared with contex
-            var hhh; // shared with contex
-            var kmit; // shared with contex
+            // The following three variables are COMMON/CONTEX/
+            var xOldd;
+            var hhh;
+            var kmit;
             var acceptStep = function (n) {
                 // Returns true if we should continue the integration. The only time false
                 // is returned is when the user's solution observation function has returned false,
