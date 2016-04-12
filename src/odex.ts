@@ -17,14 +17,14 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-interface Function {  // Function computing the value of Y' = F(x,Y)
-  (x: number,         // input x value
-   y: number[],       // input y value
-   yp?: number[])     // return y' value (deprecated)
-    : number[]|void;  // output y' values (Array of length n)
+export interface Derivative {  // function computing the value of Y' = F(x,Y)
+  (x: number,           // input x value
+   y: number[],         // input y value
+   yp?: number[])       // return y' value (deprecated)
+    : number[]|void;    // output y' values (Array of length n)
 }
 
-interface OutputFunction {                    // value callback
+export interface OutputFunction {                    // value callback
   (nr: number,                                // step number
    xold: number,                              // left edge of solution interval
    x: number,                                 // right edge of solution interval (y = F(x))
@@ -158,7 +158,7 @@ export class Solver {
 
   // Integrate the differential system represented by f, from x to xEnd, with initial data y.
   // solOut, if provided, is called at each integration step.
-  solve(f: Function,
+  solve(f: Derivative,
         x: number,
         y0: number[],
         xEnd: number,

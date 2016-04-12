@@ -20,23 +20,23 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import {Solver, Outcome} from '../src/odex';
+import {Solver, Outcome, Derivative} from '../src/odex';
 import assert = require('power-assert');
 
 describe('Odex', () => {
-  let airy0 = (x: number, y: number[], yp: number[]) => {
+  let airy0: Derivative = (x, y, yp) => {
     yp[0] = y[1];
     yp[1] = x * y[0];
   };
 
-  let airy = (x: number, y: number[]) => [y[1], x * y[0]];
+  let airy: Derivative = (x: number, y: number[]) => [y[1], x * y[0]];
 
-  let vanDerPol = (e: number) => (x: number, y: number[]) => [
+  let vanDerPol: (e: number) => Derivative = e => (x, y) => [
     y[1],
     ((1 - Math.pow(y[0], 2)) * y[1] - y[0]) / e
   ];
 
-  let bessel = (a: number) => (x: number, y: number[]) => {
+  let bessel: (a: number) => Derivative = (a) => (x, y) => {
     let xsq = x * x;
     return [y[1], ((a * a - xsq) * y[0] - x * y[1]) / xsq];
   };
@@ -46,7 +46,7 @@ describe('Odex', () => {
     c * y[0] * y[1] - d * y[1]
   ];
 
-  let trig = (x: number, y: number[]) => [y[1], -y[0]];
+  let trig: Derivative = (x, y) => [y[1], -y[0]];
 
   describe('stepSizeSequence', () => {
     it('is correct for Type 1', () => assert.deepEqual([0, 2, 4, 6, 8, 10, 12, 14, 16], Solver.stepSizeSequence(1, 8)));
