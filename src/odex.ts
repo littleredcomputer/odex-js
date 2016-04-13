@@ -257,7 +257,7 @@ export class Solver {
           for (let j = 2; j <= kc; ++j) {
             let dblenj = nj[j]
             for (let l = j; l >= 2; --l) {
-              let factor = Math.pow(dblenj / nj[l - 1], 2) - 1
+              let factor = (dblenj / nj[l - 1]) ** 2 - 1
               for (let i = 1; i <= nrd; ++i) {
                 ySafe[l - 1][i] = ySafe[l][i] + (ySafe[l][i] - ySafe[l - 1][i]) / factor
               }
@@ -275,7 +275,7 @@ export class Solver {
             // compute kmi-th derivative at mid-point
             let kbeg = (kmi + 1) / 2 | 0
             for (let kk = kbeg; kk <= kc; ++kk) {
-              let facnj = Math.pow(nj[kk] / 2, kmi - 1)
+              let facnj = (nj[kk] / 2) ** (kmi - 1)
               iPt = iPoint[kk + 1] - 2 * kk + kmi
               for (let i = 1; i <= nrd; ++i) {
                 ySafe[kk][i] = fSafe[iPt][i] * facnj
@@ -284,7 +284,7 @@ export class Solver {
             for (let j = kbeg + 1; j <= kc; ++j) {
               let dblenj = nj[j]
               for (let l = j; l >= kbeg + 1; --l) {
-                let factor = Math.pow(dblenj / nj[l - 1], 2) - 1
+                let factor = (dblenj / nj[l - 1]) ** 2 - 1
                 for (let i = 1; i <= nrd; ++i) {
                   ySafe[l - 1][i] = ySafe[l][i] + (ySafe[l][i] - ySafe[l - 1][i]) / factor
                 }
@@ -324,9 +324,9 @@ export class Solver {
           // estimation of interpolation error
           if (this.denseOutputErrorEstimator && kmit >= 1) {
             let errint = 0
-            for (let i = 1; i <= nrd; ++i) errint += Math.pow(dens[(kmit + 4) * nrd + i] / scal[icom[i]], 2)
+            for (let i = 1; i <= nrd; ++i) errint += (dens[(kmit + 4) * nrd + i] / scal[icom[i]]) ** 2
             errint = Math.sqrt(errint / nrd) * errfac[kmit]
-            hoptde = h / Math.max(Math.pow(errint, 1 / (kmit + 4)), 0.01)
+            hoptde = h / Math.max(errint ** (1 / (kmit + 4)), 0.01)
             if (errint > 10) {
               h = hoptde
               x = xOld
@@ -419,11 +419,11 @@ export class Solver {
             // stability check
             let del1 = 0
             for (let i = 1; i <= this.n; ++i) {
-              del1 += Math.pow(dz[i] / scal[i], 2)
+              del1 += (dz[i] / scal[i]) ** 2
             }
             let del2 = 0
             for (let i = 1; i <= this.n; ++i) {
-              del2 += Math.pow((dy[i] - dz[i]) / scal[i], 2)
+              del2 += ((dy[i] - dz[i]) / scal[i]) ** 2
             }
             const quot = del2 / Math.max(this.uRound, del1)
             if (quot > 4) {
@@ -452,7 +452,7 @@ export class Solver {
         const dblenj = nj[j]
         let fac: number
         for (let l = j; l > 1; --l) {
-          fac = Math.pow(dblenj / nj[l - 1], 2) - 1
+          fac = (dblenj / nj[l - 1]) ** 2 - 1
           for (let i = 1; i <= this.n; ++i) {
             t[l - 1][i] = t[l][i] + (t[l][i] - t[l - 1][i]) / fac
           }
@@ -462,7 +462,7 @@ export class Solver {
         for (let i = 1; i <= this.n; ++i) {
           let t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i]))
           scal[i] = aTol[i] + rTol[i] * t1i
-          err += Math.pow((t[1][i] - t[2][i]) / scal[i], 2)
+          err += ((t[1][i] - t[2][i]) / scal[i]) ** 2
         }
         err = Math.sqrt(err / this.n)
         if (err * this.uRound >= 1 || (j > 2 && err >= errOld)) {
@@ -474,9 +474,9 @@ export class Solver {
         errOld = Math.max(4 * err, 1)
         // compute optimal stepsizes
         let exp0 = 1 / (2 * j - 1)
-        let facMin = Math.pow(this.stepSizeFac1, exp0)
+        let facMin = this.stepSizeFac1 ** exp0
         fac = Math.min(this.stepSizeFac2 / facMin,
-          Math.max(facMin, Math.pow(err / this.stepSafetyFactor1, exp0) / this.stepSafetyFactor2))
+          Math.max(facMin, (err / this.stepSafetyFactor1) ** exp0 / this.stepSafetyFactor2))
         fac = 1 / fac
         hh[j] = Math.min(Math.abs(h) * fac, hMax)
         w[j] = a[j] / hh[j]
@@ -553,7 +553,7 @@ export class Solver {
           for (let im = imit; im >= 1; --im) {
             ret = y[nrd * (im + 3) + i] + ret * thetah / im
           }
-          return phthet + Math.pow(theta * theta1, 2) * ret
+          return phthet + (theta * theta1) ** 2 * ret
         }
       }
 
@@ -593,7 +593,7 @@ export class Solver {
           }
           for (let mu = 1; mu <= 2 * km; ++mu) {
             let errx = Math.sqrt(mu / (mu + 4)) * 0.5
-            let prod = Math.pow(1 / (mu + 4), 2)
+            let prod = (1 / (mu + 4)) ** 2
             for (let j = 1; j <= mu; ++j) prod *= errx / j
             errfac[mu] = prod
           }
@@ -675,7 +675,7 @@ export class Solver {
             } else {
               if (err <= 1) {
                 state = STATE.Accept
-              } else if (err > Math.pow((nj[k + 1] * nj[k]) / 4, 2)) {
+              } else if (err > ((nj[k + 1] * nj[k]) / 4) ** 2) {
                 state = STATE.Reject
               } else state = STATE.ConvergenceStep
             }
@@ -697,7 +697,7 @@ export class Solver {
 
           case STATE.HopeForConvergence:
             // hope for convergence in line k + 1
-            if (err > Math.pow(nj[k + 1] / 2, 2)) {
+            if (err > (nj[k + 1] / 2) ** 2) {
               state = STATE.Reject
               continue
             }

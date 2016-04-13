@@ -223,7 +223,7 @@ var Solver = (function () {
                     for (var j = 2; j <= kc; ++j) {
                         var dblenj = nj[j];
                         for (var l = j; l >= 2; --l) {
-                            var factor = Math.pow(dblenj / nj[l - 1], 2) - 1;
+                            var factor = Math.pow((dblenj / nj[l - 1]), 2) - 1;
                             for (var i = 1; i <= nrd; ++i) {
                                 ySafe[l - 1][i] = ySafe[l][i] + (ySafe[l][i] - ySafe[l - 1][i]) / factor;
                             }
@@ -244,7 +244,7 @@ var Solver = (function () {
                         // compute kmi-th derivative at mid-point
                         var kbeg = (kmi + 1) / 2 | 0;
                         for (var kk = kbeg; kk <= kc; ++kk) {
-                            var facnj = Math.pow(nj[kk] / 2, kmi - 1);
+                            var facnj = Math.pow((nj[kk] / 2), (kmi - 1));
                             iPt = iPoint[kk + 1] - 2 * kk + kmi;
                             for (var i = 1; i <= nrd; ++i) {
                                 ySafe[kk][i] = fSafe[iPt][i] * facnj;
@@ -253,7 +253,7 @@ var Solver = (function () {
                         for (var j = kbeg + 1; j <= kc; ++j) {
                             var dblenj = nj[j];
                             for (var l = j; l >= kbeg + 1; --l) {
-                                var factor = Math.pow(dblenj / nj[l - 1], 2) - 1;
+                                var factor = Math.pow((dblenj / nj[l - 1]), 2) - 1;
                                 for (var i = 1; i <= nrd; ++i) {
                                     ySafe[l - 1][i] = ySafe[l][i] + (ySafe[l][i] - ySafe[l - 1][i]) / factor;
                                 }
@@ -298,9 +298,9 @@ var Solver = (function () {
                     if (_this.denseOutputErrorEstimator && kmit >= 1) {
                         var errint = 0;
                         for (var i = 1; i <= nrd; ++i)
-                            errint += Math.pow(dens[(kmit + 4) * nrd + i] / scal[icom[i]], 2);
+                            errint += Math.pow((dens[(kmit + 4) * nrd + i] / scal[icom[i]]), 2);
                         errint = Math.sqrt(errint / nrd) * errfac[kmit];
-                        hoptde = h / Math.max(Math.pow(errint, 1 / (kmit + 4)), 0.01);
+                        hoptde = h / Math.max(Math.pow(errint, (1 / (kmit + 4))), 0.01);
                         if (errint > 10) {
                             h = hoptde;
                             x = xOld;
@@ -401,11 +401,11 @@ var Solver = (function () {
                         // stability check
                         var del1 = 0;
                         for (var i = 1; i <= _this.n; ++i) {
-                            del1 += Math.pow(dz[i] / scal[i], 2);
+                            del1 += Math.pow((dz[i] / scal[i]), 2);
                         }
                         var del2 = 0;
                         for (var i = 1; i <= _this.n; ++i) {
-                            del2 += Math.pow((dy[i] - dz[i]) / scal[i], 2);
+                            del2 += Math.pow(((dy[i] - dz[i]) / scal[i]), 2);
                         }
                         var quot = del2 / Math.max(_this.uRound, del1);
                         if (quot > 4) {
@@ -435,7 +435,7 @@ var Solver = (function () {
                 var dblenj = nj[j];
                 var fac;
                 for (var l = j; l > 1; --l) {
-                    fac = Math.pow(dblenj / nj[l - 1], 2) - 1;
+                    fac = Math.pow((dblenj / nj[l - 1]), 2) - 1;
                     for (var i = 1; i <= _this.n; ++i) {
                         t[l - 1][i] = t[l][i] + (t[l][i] - t[l - 1][i]) / fac;
                     }
@@ -445,7 +445,7 @@ var Solver = (function () {
                 for (var i = 1; i <= _this.n; ++i) {
                     var t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i]));
                     scal[i] = aTol[i] + rTol[i] * t1i;
-                    err += Math.pow((t[1][i] - t[2][i]) / scal[i], 2);
+                    err += Math.pow(((t[1][i] - t[2][i]) / scal[i]), 2);
                 }
                 err = Math.sqrt(err / _this.n);
                 if (err * _this.uRound >= 1 || (j > 2 && err >= errOld)) {
@@ -458,7 +458,7 @@ var Solver = (function () {
                 // compute optimal stepsizes
                 var exp0 = 1 / (2 * j - 1);
                 var facMin = Math.pow(_this.stepSizeFac1, exp0);
-                fac = Math.min(_this.stepSizeFac2 / facMin, Math.max(facMin, Math.pow(err / _this.stepSafetyFactor1, exp0) / _this.stepSafetyFactor2));
+                fac = Math.min(_this.stepSizeFac2 / facMin, Math.max(facMin, Math.pow((err / _this.stepSafetyFactor1), exp0) / _this.stepSafetyFactor2));
                 fac = 1 / fac;
                 hh[j] = Math.min(Math.abs(h) * fac, hMax);
                 w[j] = a[j] / hh[j];
@@ -534,7 +534,7 @@ var Solver = (function () {
                     for (var im = imit; im >= 1; --im) {
                         ret = y[nrd * (im + 3) + i] + ret * thetah / im;
                     }
-                    return phthet + Math.pow(theta * theta1, 2) * ret;
+                    return phthet + Math.pow((theta * theta1), 2) * ret;
                 };
             };
             // preparation
@@ -574,7 +574,7 @@ var Solver = (function () {
                     }
                     for (var mu = 1; mu <= 2 * km; ++mu) {
                         var errx = Math.sqrt(mu / (mu + 4)) * 0.5;
-                        var prod = Math.pow(1 / (mu + 4), 2);
+                        var prod = Math.pow((1 / (mu + 4)), 2);
                         for (var j = 1; j <= mu; ++j)
                             prod *= errx / j;
                         errfac[mu] = prod;
@@ -664,7 +664,7 @@ var Solver = (function () {
                             if (err <= 1) {
                                 state = STATE.Accept;
                             }
-                            else if (err > Math.pow((nj[k + 1] * nj[k]) / 4, 2)) {
+                            else if (err > Math.pow(((nj[k + 1] * nj[k]) / 4), 2)) {
                                 state = STATE.Reject;
                             }
                             else
@@ -686,7 +686,7 @@ var Solver = (function () {
                         continue;
                     case STATE.HopeForConvergence:
                         // hope for convergence in line k + 1
-                        if (err > Math.pow(nj[k + 1] / 2, 2)) {
+                        if (err > Math.pow((nj[k + 1] / 2), 2)) {
                             state = STATE.Reject;
                             continue;
                         }
