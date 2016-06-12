@@ -1,6 +1,7 @@
 **/a.out
 *.js.map
 .idea/
+.vscode/
 coverage/
 node_modules/
 *.iml

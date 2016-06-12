@@ -75,7 +75,7 @@ describe('Odex', () => {
     const tol = 1e-8
     s.absoluteTolerance = s.relativeTolerance = tol
     let y0 = [1]
-    let {y: [y1], outcome: outcome} = s.solve((x, y) => [y[0]], 0, y0, 1)
+    let {y: [y1], outcome: outcome} = s.solve((x, y) => y, 0, y0, 1)
     it('converged', () => assert.equal(outcome, Outcome.Converged))
     it('worked for y', () => assert(Math.abs(y1 - Math.exp(1)) < tol * 10))
   })

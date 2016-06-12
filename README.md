@@ -19,7 +19,7 @@ solution y(x) = exp(x). First we create a solver object, telling how many
 independent variables there are in the system (in this case just one).
 
 ```js
-odex = require('odex');
+var odex = require('odex');
 var s = new odex.Solver(1);
 ```
 
@@ -29,7 +29,7 @@ simple:
 
 ```js
 var f = function(x, y) {
-  return [y[0]];
+  return y;
 }
 ```
 
@@ -44,8 +44,7 @@ and endpoints. Let's find y(1):
 s.solve(f,
         0,    // initial x value
         [1],  // initial y values (just one in this example)
-        1     // final x value
-);
+        1);   // final x value
 // { y: [ 2.7182817799042955 ],
 //   outcome: 0,
 //   nStep: 7,
@@ -130,11 +129,13 @@ dx/dt = a x - b x y
 dy/dt = c x y - d y
 ```
 
-For odex, we call t x, and x and y become y[0] and y[1]. To represent
-the system itself we can write:
+For odex, we rename *t* to *x*, and then *x* and *y* become `y[0]` and `y[1]`.
+We write a function LV which binds the constants of the population system 
+`a`, `b`, `c`, `d` and returns a function suitable for the integrator. 
+To represent this system we can write:
 
 ```js
-var LV = function(a, b, c, d) {
+var LotkaVolterra = function(a, b, c, d) {
   return function(x, y) {
     return [
       a * y[0] - b * y[0] * y[1],
@@ -152,27 +153,33 @@ at time 6, if the state at time zero is {y<sub>0</sub> = 1, y<sub>1</sub>
 
 ```js
 s = new odex.Solver(2);
-s.solve(LV(2/3, 4/3, 1, 1), 0, [1, 1], 6).y
+s.solve(LotkaVolterra(2/3, 4/3, 1, 1), 0, [1, 1], 6).y
 // [ 1.6542774481418214, 0.3252864486771545 ]
 ````
+To see more of this system of equations in action, you can visit a 
+[demo page][lvdemo] which allows you to vary the initial conditions 
+with the mouse.
 
 ##### A second-order equation
 
 You can integrate second order ordinary differential equations by making a
-simple transformation to a system of first order equations. Consider Airy's
-equation: y&Prime;&nbsp;&minus;&nbsp;x&thinsp;y = 0:
+simple transformation to a system of first order equations. Consider 
+[Airy's equation][airy]: y&Prime;&nbsp;&minus;&nbsp;x&thinsp;y = 0:
 
 In ODEX, we could write y<sub>0</sub> for y and y<sub>1</sub> for y&prime;,
 so that y&Prime; = y&prime;<sub>1</sub> and rewrite the system like this:
-y&prime;<sub>0</sub>&nbsp;=&nbsp;y<sub>1</sub>;&emsp;
+y&prime;<sub>0</sub>&nbsp;=&nbsp;y<sub>1</sub>;&ensp;
 y&prime;<sub>1</sub>&nbsp;&minus;&nbsp;x&nbsp;y<sub>0</sub>&nbsp;=&nbsp;0 to get:
-
 
 ```js
 var airy = function(x, y) {
   return [y[1], x * y[0]];
 }
 ```
+There's also a [demo page][airydemo] for this equation too.
+
+You might also enjoy a demo of the [Lorenz attractor][lorenz] or 
+[Van der Pol equation][vanderpol]!
 
 #### Tests
 This project comes with a mocha test suite. The suite contains other
@@ -182,3 +189,8 @@ systems of first order equations you may examine.
 [odex]: http://www.unige.ch/~hairer/software.html
 [gbs]: https://en.wikipedia.org/wiki/Bulirsch%E2%80%93Stoer_algorithm
 [lv]: https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations
+[lvdemo]: http://blog.littleredcomputer.net/math/odex/js/2016/04/03/lotka-volterra.html
+[airy]: https://en.wikipedia.org/wiki/Airy_function
+[airydemo]: http://blog.littleredcomputer.net/jekyll/update/2016/04/03/diffeq-javascript.html
+[lorenz]: http://blog.littleredcomputer.net/math/odex/js/2016/04/03/lorenz-attractor.html
+[vanderpol]: http://blog.littleredcomputer.net/math/odex/js/2016/04/20/van-der-pol.html

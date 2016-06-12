@@ -66,7 +66,7 @@ describe('Odex', function () {
         var tol = 1e-8;
         s.absoluteTolerance = s.relativeTolerance = tol;
         var y0 = [1];
-        var _a = s.solve(function (x, y) { return [y[0]]; }, 0, y0, 1), y1 = _a.y[0], outcome = _a.outcome;
+        var _a = s.solve(function (x, y) { return y; }, 0, y0, 1), y1 = _a.y[0], outcome = _a.outcome;
         it('converged', function () { return assert.equal(outcome, odex_1.Outcome.Converged); });
         it('worked for y', function () { return assert(Math.abs(y1 - Math.exp(1)) < tol * 10); });
     });

@@ -5,9 +5,6 @@
     "noImplicitAny": true,
     "sourceMap": true
   },
-  "exclude": [
-    "node_modules"
-  ],
   "files": [
     "src/odex.ts",
     "test/odexTest.ts"
