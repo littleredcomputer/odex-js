@@ -1,5 +1,7 @@
-///<reference path="../../../Library/Preferences/IntelliJIdea2016.1/javascript/extLibs/http_github.com_DefinitelyTyped_DefinitelyTyped_raw_master_jasmine_jasmine.d.ts"/>
-///<reference path="../../../Library/Preferences/IntelliJIdea2016.1/javascript/extLibs/http_github.com_DefinitelyTyped_DefinitelyTyped_raw_master_assert_assert.d.ts"/>
+///<reference path="../typings/globals/jasmine/index.d.ts"/>
+///<reference path="../typings/globals/empower/index.d.ts"/>
+///<reference path="../typings/globals/power-assert-formatter/index.d.ts"/>
+///<reference path="../typings/globals/power-assert/index.d.ts"/>
 
 /**
  * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.

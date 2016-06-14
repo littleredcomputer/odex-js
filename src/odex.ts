@@ -212,10 +212,7 @@ export class Solver {
 
     const aTol = expandToArray(this.absoluteTolerance, this.n)
     const rTol = expandToArray(this.relativeTolerance, this.n)
-    let nEval = 0
-    let nStep = 0
-    let nAccept = 0
-    let nReject = 0
+    let [nEval, nStep, nAccept, nReject] = [0, 0, 0, 0]
 
     // call to core integrator
     const nrd = Math.max(1, nrdens)

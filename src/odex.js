@@ -177,10 +177,7 @@ var Solver = (function () {
         }
         var aTol = expandToArray(this.absoluteTolerance, this.n);
         var rTol = expandToArray(this.relativeTolerance, this.n);
-        var nEval = 0;
-        var nStep = 0;
-        var nAccept = 0;
-        var nReject = 0;
+        var _b = [0, 0, 0, 0], nEval = _b[0], nStep = _b[1], nAccept = _b[2], nReject = _b[3];
         // call to core integrator
         var nrd = Math.max(1, nrdens);
         var ncom = Math.max(1, (2 * km + 5) * nrdens);
