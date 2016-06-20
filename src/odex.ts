@@ -19,9 +19,8 @@
 
 export interface Derivative {  // function computing the value of Y' = F(x,Y)
   (x: number,           // input x value
-   y: number[],         // input y value
-   yp?: number[])       // return y' values (DEPRECATED: just return array)
-    : number[]|void     // output y' values (Array of length n)
+   y: number[])         // input y value)
+    : number[]          // output y' values (Array of length n)
 }
 
 export interface OutputFunction {                    // value callback
@@ -219,14 +218,11 @@ export class Solver {
     const ncom = Math.max(1, (2 * km + 5) * nrdens)
     const dens = Solver.dim(ncom)
     const fSafe = Solver.dim2(lfSafe, nrd)
-    // now return: nfcn, nstep, naccept, nreject XXX
 
     // Wrap f in a function F which hides the one-based indexing from the customers.
     const F = (x: number, y: number[], yp: number[]) => {
-      let yp1 = yp.slice(1)
-      let ret = f(x, y.slice(1), yp1)
-      if (Array.isArray(ret)) yp.splice(1, this.n, ...ret)
-      else yp.splice(1, this.n, ...yp1)
+      let ret = f(x, y.slice(1))
+      for (let i = 0; i < ret.length; ++i) yp[i + 1] = ret[i]
     }
 
     let odxcor = (): Outcome => {

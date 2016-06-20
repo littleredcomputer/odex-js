@@ -183,15 +183,11 @@ var Solver = (function () {
         var ncom = Math.max(1, (2 * km + 5) * nrdens);
         var dens = Solver.dim(ncom);
         var fSafe = Solver.dim2(lfSafe, nrd);
-        // now return: nfcn, nstep, naccept, nreject XXX
         // Wrap f in a function F which hides the one-based indexing from the customers.
         var F = function (x, y, yp) {
-            var yp1 = yp.slice(1);
-            var ret = f(x, y.slice(1), yp1);
-            if (Array.isArray(ret))
-                yp.splice.apply(yp, [1, _this.n].concat(ret));
-            else
-                yp.splice.apply(yp, [1, _this.n].concat(yp1));
+            var ret = f(x, y.slice(1));
+            for (var i = 0; i < ret.length; ++i)
+                yp[i + 1] = ret[i];
         };
         var odxcor = function () {
             // The following three variables are COMMON/CONTEX/
