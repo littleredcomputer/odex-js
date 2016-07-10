@@ -3,4 +3,4 @@ node_js:
   - "6"
   - "5.1"
 after_success:
-  - node run coveralls
+  - npm run coveralls

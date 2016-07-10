@@ -1,5 +1,6 @@
 ## odex-js : ODEX in JavaScript
-[![Build Status](https://travis-ci.org/littleredcomputer/odex-js.svg?branch=master)](https://travis-ci.org/littleredcomputer/odex-js) [![GitHub license](https://img.shields.io/github/license/littleredcomputer/odex-js.svg)]() [![npm](https://img.shields.io/npm/v/odex.svg)]()
+[![Build Status](https://travis-ci.org/littleredcomputer/odex-js.svg?branch=master)](https://travis-ci.org/littleredcomputer/odex-js) [![GitHub license](https://img.shields.io/github/license/littleredcomputer/odex-js.svg)]() [![npm](https://img.shields.io/npm/v/odex.svg)]()[![Coverage Status](https://coveralls.io/repos/github/littleredcomputer/odex-js/badge.svg?branch=master)](https://coveralls.io/github/littleredcomputer/odex-js?branch=master)
+
 #### Numerically solves of non-stiff systems of ordinary differential equations in JavaScript.
 
 This is a port to JavaScript (actually, TypeScript) of [E. Hairer and
@@ -130,8 +131,8 @@ dy/dt = c x y - d y
 ```
 
 For odex, we rename *t* to *x*, and then *x* and *y* become `y[0]` and `y[1]`.
-We write a function LV which binds the constants of the population system 
-`a`, `b`, `c`, `d` and returns a function suitable for the integrator. 
+We write a function LV which binds the constants of the population system
+`a`, `b`, `c`, `d` and returns a function suitable for the integrator.
 To represent this system we can write:
 
 ```js
@@ -156,14 +157,14 @@ s = new odex.Solver(2);
 s.solve(LotkaVolterra(2/3, 4/3, 1, 1), 0, [1, 1], 6).y
 // [ 1.6542774481418214, 0.3252864486771545 ]
 ````
-To see more of this system of equations in action, you can visit a 
-[demo page][lvdemo] which allows you to vary the initial conditions 
+To see more of this system of equations in action, you can visit a
+[demo page][lvdemo] which allows you to vary the initial conditions
 with the mouse.
 
 ##### A second-order equation
 
 You can integrate second order ordinary differential equations by making a
-simple transformation to a system of first order equations. Consider 
+simple transformation to a system of first order equations. Consider
 [Airy's equation][airy]: y&Prime;&nbsp;&minus;&nbsp;x&thinsp;y = 0:
 
 In ODEX, we could write y<sub>0</sub> for y and y<sub>1</sub> for y&prime;,
@@ -178,7 +179,7 @@ var airy = function(x, y) {
 ```
 There's also a [demo page][airydemo] for this equation too.
 
-You might also enjoy a demo of the [Lorenz attractor][lorenz] or 
+You might also enjoy a demo of the [Lorenz attractor][lorenz] or
 [Van der Pol equation][vanderpol]!
 
 #### Tests
