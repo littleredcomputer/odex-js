@@ -29,7 +29,7 @@ describe('Odex', () => {
   let NewSolver = (n: number) => {
     let s = new Solver(n)
     s.maxSteps = 200
-    return s
+      return s
   }
 
   let airy: Derivative = (x: number, y: number[]) => [y[1], x * y[0]]
@@ -337,6 +337,3 @@ describe('Odex', () => {
     it('rejected some steps', () => assert(o.nReject > 0))
   })
 })
-
-
-
