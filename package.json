@@ -1,6 +1,6 @@
 {
   "name": "odex",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Ernst Hairer's ODEX nonstiff ODE solver in JavaScript",
   "keywords": [
     "ordinary",
@@ -13,7 +13,8 @@
   ],
   "main": "src/odex.js",
   "scripts": {
-    "test": "mocha --require intelli-espower-loader test",
+    "test": "mocha test",
+    "test2": "mocha --require intelli-espower-loader test",
     "coverage": "istanbul cover node_modules/mocha/bin/_mocha test",
     "coveralls": "istanbul cover node_modules/mocha/bin/_mocha --report lcovonly -- -R spec && cat coverage/lcov.info | node_modules/coveralls/bin/coveralls.js && rm -rf coverage"
   },
