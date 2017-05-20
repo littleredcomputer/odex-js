@@ -1,8 +1,3 @@
-///<reference path="../typings/globals/jasmine/index.d.ts"/>
-///<reference path="../typings/globals/empower/index.d.ts"/>
-///<reference path="../typings/globals/power-assert-formatter/index.d.ts"/>
-///<reference path="../typings/globals/power-assert/index.d.ts"/>
-
 /**
  * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
  * The original work carries the BSD 2-clause license, and so does this.
@@ -71,7 +66,6 @@ describe('Odex', () => {
     it('converged', () => assert.equal(outcome, Outcome.Converged))
     it('worked for y', () => assert(Math.abs(y1 + 1.58184) < tol * 10))
     it(`worked for y'`, () => assert(Math.abs(y1p - 0.978449) < tol * 10))
-
   })
   describe(`y' = y, (exp)`, () => {
     let s = NewSolver(1)
@@ -145,6 +139,14 @@ describe('Odex', () => {
     })
     it('noticed the early exit', () => assert(o.outcome === Outcome.EarlyReturn))
     it('took the right number of steps', () => assert(o.nStep === evalLimit - 1))
+    let t = NewSolver(1)
+    let evalCount2 = 0
+    t.denseOutput = true
+    let o2 = t.solve((x, y) => y, 0, [1], 1, t.grid(0.01, () => {
+      if (++evalCount2 === evalLimit) return false
+    }))
+    it('noticed the early exit using grid', () => assert(o2.outcome === Outcome.EarlyReturn))
+    it('took fewer than expected steps using grid', () => assert(o2.nStep < 10))
   })
   describe('cosine (observer)', () => {
     let s = NewSolver(2)
@@ -335,5 +337,15 @@ describe('Odex', () => {
       it('works for y at grid point ' + x, () => assert(diff < 1e-4))
     }))
     it('rejected some steps', () => assert(o.nReject > 0))
+  })
+  describe('Configuration debugging', () => {
+    it ('throws when you use grid without denseOutput', () => {
+      let s = NewSolver(1)
+      assert.throws(() => {
+        s.solve((x, y) => y, 0, [1], 1, s.grid(0.1, (x, y) => {
+          console.log(x, y)
+        }))
+      }, /denseOutput/, 'expected recommendation to use denseOutput')
+    })
   })
 })

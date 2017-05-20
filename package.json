@@ -2,7 +2,15 @@
   "name": "odex",
   "version": "2.0.1",
   "description": "Ernst Hairer's ODEX nonstiff ODE solver in JavaScript",
-  "keywords": ["ordinary", "differential", "equation", "numerical", "method", "ode", "solver"],
+  "keywords": [
+    "ordinary",
+    "differential",
+    "equation",
+    "numerical",
+    "method",
+    "ode",
+    "solver"
+  ],
   "main": "src/odex.js",
   "scripts": {
     "test": "mocha --require intelli-espower-loader test",
@@ -15,10 +23,13 @@
   "author": "Colin Smith <colin.smith@gmail.com> (http://github.com/littleredcomputer)",
   "license": "BSD-2-Clause",
   "devDependencies": {
-    "coveralls": "^2.11.9",
+    "@types/jasmine": "^2.5.47",
+    "@types/power-assert": "^1.4.29",
+    "coveralls": "^2.13.1",
     "intelli-espower-loader": "^1.0.1",
-    "mocha": "^2.4.5",
-    "mocha-lcov-reporter": "^1.2.0",
+    "jasmine": "^2.6.0",
+    "mocha": "^3.4.1",
+    "mocha-lcov-reporter": "^1.3.0",
     "power-assert": "^1.3.1"
   },
   "tonicExampleFilename": "src/tonic-example.js"

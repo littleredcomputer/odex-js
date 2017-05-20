@@ -1,3 +1,4 @@
+"use strict";
 /**
  * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
  * The original work carries the BSD 2-clause license, and so does this.
@@ -16,13 +17,13 @@
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var Outcome;
 (function (Outcome) {
     Outcome[Outcome["Converged"] = 0] = "Converged";
     Outcome[Outcome["MaxStepsExceeded"] = 1] = "MaxStepsExceeded";
     Outcome[Outcome["EarlyReturn"] = 2] = "EarlyReturn";
-})(exports.Outcome || (exports.Outcome = {}));
-var Outcome = exports.Outcome;
+})(Outcome = exports.Outcome || (exports.Outcome = {}));
 var Solver = (function () {
     function Solver(n) {
         this.n = n;
@@ -50,6 +51,8 @@ var Solver = (function () {
         this.debug = false;
     }
     Solver.prototype.grid = function (dt, out) {
+        if (!this.denseOutput)
+            throw new Error('Must set .denseOutput to true when using grid');
         var components = this.denseComponents;
         if (!components) {
             components = [];
@@ -59,9 +62,9 @@ var Solver = (function () {
         var t;
         return function (n, xOld, x, y, interpolate) {
             if (n === 1) {
-                out(x, y);
+                var v = out(x, y);
                 t = x + dt;
-                return;
+                return v;
             }
             while (t <= x) {
                 var yf = [];
@@ -69,7 +72,9 @@ var Solver = (function () {
                     var i = components_1[_i];
                     yf.push(interpolate(i, t));
                 }
-                out(t, yf);
+                var v = out(t, yf);
+                if (v === false)
+                    return false;
                 t += dt;
             }
         };
@@ -720,10 +725,10 @@ var Solver = (function () {
             nEval: nEval
         };
     };
-    // return a 1-based array of length n. Initial values undefined.
-    Solver.dim = function (n) { return Array(n + 1); };
-    Solver.log10 = function (x) { return Math.log(x) / Math.LN10; };
     return Solver;
 }());
+// return a 1-based array of length n. Initial values undefined.
+Solver.dim = function (n) { return Array(n + 1); };
+Solver.log10 = function (x) { return Math.log(x) / Math.LN10; };
 exports.Solver = Solver;
 //# sourceMappingURL=odex.js.map

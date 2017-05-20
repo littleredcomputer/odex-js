@@ -90,6 +90,7 @@ export class Solver {
   }
 
   grid(dt: number, out: (xOut: number, yOut: number[]) => any): OutputFunction {
+    if (!this.denseOutput) throw new Error('Must set .denseOutput to true when using grid')
     let components: number[] = this.denseComponents
     if (!components) {
       components = []
@@ -98,16 +99,17 @@ export class Solver {
     let t: number
     return (n: number, xOld: number, x: number, y: number[], interpolate: (i: number, x: number) => number) => {
       if (n === 1) {
-        out(x, y)
+        let v = out(x, y)
         t = x + dt
-        return
+        return v
       }
       while (t <= x) {
         let yf: number[] = []
         for (let i of components) {
           yf.push(interpolate(i, t))
         }
-        out(t, yf)
+        let v = out(t, yf)
+        if (v === false) return false
         t += dt
       }
     }

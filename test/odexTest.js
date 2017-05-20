@@ -1,7 +1,3 @@
-///<reference path="../typings/globals/jasmine/index.d.ts"/>
-///<reference path="../typings/globals/empower/index.d.ts"/>
-///<reference path="../typings/globals/power-assert-formatter/index.d.ts"/>
-///<reference path="../typings/globals/power-assert/index.d.ts"/>
 "use strict";
 /**
  * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
@@ -21,8 +17,9 @@
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-var odex_1 = require('../src/odex');
-var assert = require('power-assert');
+Object.defineProperty(exports, "__esModule", { value: true });
+var odex_1 = require("../src/odex");
+var assert = require("power-assert");
 describe('Odex', function () {
     var NewSolver = function (n) {
         var s = new odex_1.Solver(n);
@@ -136,6 +133,15 @@ describe('Odex', function () {
         });
         it('noticed the early exit', function () { return assert(o.outcome === odex_1.Outcome.EarlyReturn); });
         it('took the right number of steps', function () { return assert(o.nStep === evalLimit - 1); });
+        var t = NewSolver(1);
+        var evalCount2 = 0;
+        t.denseOutput = true;
+        var o2 = t.solve(function (x, y) { return y; }, 0, [1], 1, t.grid(0.01, function () {
+            if (++evalCount2 === evalLimit)
+                return false;
+        }));
+        it('noticed the early exit using grid', function () { return assert(o2.outcome === odex_1.Outcome.EarlyReturn); });
+        it('took fewer than expected steps using grid', function () { return assert(o2.nStep < 10); });
     });
     describe('cosine (observer)', function () {
         var s = NewSolver(2);
@@ -178,7 +184,7 @@ describe('Odex', function () {
         var grid = 0.1;
         var current = 0.0;
         var o = s.solve(trig, 0, [1, 0], Math.PI / 2, function (n, xOld, x, y, f) {
-            var _loop_1 = function() {
+            var _loop_1 = function () {
                 var k = current;
                 var v = f(0, current);
                 var vp = f(1, current);
@@ -327,6 +333,16 @@ describe('Odex', function () {
             it('works for y at grid point ' + x, function () { return assert(diff < 1e-4); });
         }));
         it('rejected some steps', function () { return assert(o.nReject > 0); });
+    });
+    describe('Configuration debugging', function () {
+        it('throws when you use grid without denseOutput', function () {
+            var s = NewSolver(1);
+            assert.throws(function () {
+                s.solve(function (x, y) { return y; }, 0, [1], 1, s.grid(0.1, function (x, y) {
+                    console.log(x, y);
+                }));
+            }, /denseOutput/, 'expected recommendation to use denseOutput');
+        });
     });
 });
 //# sourceMappingURL=odexTest.js.map
