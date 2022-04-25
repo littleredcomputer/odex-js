@@ -228,10 +228,6 @@ export class Solver {
     }
 
     let odxcor = (): Outcome => {
-      // The following three variables are COMMON/CONTEX/
-      let xOldd: number
-      let hhh: number
-      let kmit: number
 
       let acceptStep = (n: number): boolean => {   // label 60
         // Returns true if we should continue the integration. The only time false
@@ -239,12 +235,10 @@ export class Solver {
         // indicating that she does not wish to continue the computation.
         xOld = x
         x += h
+        const kmit = 2 * kc - this.interpolationFormulaDegree + 1
         if (this.denseOutput) {
           // kmit = mu of the paper
-          kmit = 2 * kc - this.interpolationFormulaDegree + 1
           for (let i = 1; i <= nrd; ++i) dens[i] = y[icom[i]]
-          xOldd = xOld
-          hhh = h  // note: xOldd and hhh are part of /CONODX/
           for (let i = 1; i <= nrd; ++i) dens[nrd + i] = h * dz[icom[i]]
           let kln = 2 * nrd
           for (let i = 1; i <= nrd; ++i) dens[kln + i] = t[1][icom[i]]
@@ -337,7 +331,7 @@ export class Solver {
         if (solOut) {
           // If denseOutput, we also want to supply the dense closure.
           if (solOut(nAccept + 1, xOld, x, y.slice(1),
-              this.denseOutput && contex(xOldd, hhh, kmit, dens, icom)) === false) return false
+              this.denseOutput && contex(xOld, h, kmit, dens, icom)) === false) return false
         }
         // compute optimal order
         let kopt: number

@@ -18,13 +18,14 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Solver = exports.Outcome = void 0;
 var Outcome;
 (function (Outcome) {
     Outcome[Outcome["Converged"] = 0] = "Converged";
     Outcome[Outcome["MaxStepsExceeded"] = 1] = "MaxStepsExceeded";
     Outcome[Outcome["EarlyReturn"] = 2] = "EarlyReturn";
 })(Outcome = exports.Outcome || (exports.Outcome = {}));
-var Solver = (function () {
+var Solver = /** @class */ (function () {
     function Solver(n) {
         this.n = n;
         this.uRound = 2.3e-16;
@@ -196,22 +197,17 @@ var Solver = (function () {
         };
         var odxcor = function () {
             // The following three variables are COMMON/CONTEX/
-            var xOldd;
-            var hhh;
-            var kmit;
             var acceptStep = function (n) {
                 // Returns true if we should continue the integration. The only time false
                 // is returned is when the user's solution observation function has returned false,
                 // indicating that she does not wish to continue the computation.
                 xOld = x;
                 x += h;
+                var kmit = 2 * kc - _this.interpolationFormulaDegree + 1;
                 if (_this.denseOutput) {
                     // kmit = mu of the paper
-                    kmit = 2 * kc - _this.interpolationFormulaDegree + 1;
                     for (var i = 1; i <= nrd; ++i)
                         dens[i] = y[icom[i]];
-                    xOldd = xOld;
-                    hhh = h; // note: xOldd and hhh are part of /CONODX/
                     for (var i = 1; i <= nrd; ++i)
                         dens[nrd + i] = h * dz[icom[i]];
                     var kln = 2 * nrd;
@@ -315,7 +311,7 @@ var Solver = (function () {
                 ++nAccept;
                 if (solOut) {
                     // If denseOutput, we also want to supply the dense closure.
-                    if (solOut(nAccept + 1, xOld, x, y.slice(1), _this.denseOutput && contex(xOldd, hhh, kmit, dens, icom)) === false)
+                    if (solOut(nAccept + 1, xOld, x, y.slice(1), _this.denseOutput && contex(xOld, h, kmit, dens, icom)) === false)
                         return false;
                 }
                 // compute optimal order
@@ -669,7 +665,7 @@ var Solver = (function () {
                                 state = STATE.ConvergenceStep;
                         }
                         continue;
-                    case STATE.ConvergenceStep:
+                    case STATE.ConvergenceStep: // label 50
                         midex(k);
                         if (atov) {
                             state = STATE.Start;
@@ -725,10 +721,10 @@ var Solver = (function () {
             nEval: nEval
         };
     };
+    // return a 1-based array of length n. Initial values undefined.
+    Solver.dim = function (n) { return Array(n + 1); };
+    Solver.log10 = function (x) { return Math.log(x) / Math.LN10; };
     return Solver;
 }());
-// return a 1-based array of length n. Initial values undefined.
-Solver.dim = function (n) { return Array(n + 1); };
-Solver.log10 = function (x) { return Math.log(x) / Math.LN10; };
 exports.Solver = Solver;
 //# sourceMappingURL=odex.js.map
