@@ -170,8 +170,7 @@ export class Solver {
     let yh1 = Solver.dim(this.n)
     let yh2 = Solver.dim(this.n)
     if (this.maxSteps <= 0) throw new Error('maxSteps must be positive')
-    const km = this.maxExtrapolationColumns
-    if (km <= 2) throw new Error('maxExtrapolationColumns must be > 2')
+    if (this.maxExtrapolationColumns <= 2) throw new Error('maxExtrapolationColumns must be > 2')
     const nSeq = this.stepSizeSequence || (this.denseOutput ? 4 : 1)
     if (nSeq <= 3 && this.denseOutput) throw new Error('stepSizeSequence incompatible with denseOutput')
     if (this.denseOutput && !solOut) throw new Error('denseOutput requires a solution observer function')
@@ -197,7 +196,7 @@ export class Solver {
     }
     if (this.uRound <= 1e-35 || this.uRound > 1) throw new Error('suspicious value of uRound')
     const hMax = Math.abs(this.maxStepSize || xEnd - x)
-    const lfSafe = 2 * km * km + km
+    const lfSafe = 2 * this.maxExtrapolationColumns * this.maxExtrapolationColumns + this.maxExtrapolationColumns
 
     function expandToArray(x: number|number[], n: number): number[] {
       // If x is an array, return a 1-based copy of it. If x is a number, return a new 1-based array
@@ -217,7 +216,7 @@ export class Solver {
 
     // call to core integrator
     const nrd = Math.max(1, nrdens)
-    const ncom = Math.max(1, (2 * km + 5) * nrdens)
+    const ncom = Math.max(1, (2 * this.maxExtrapolationColumns + 5) * nrdens)
     const dens = Solver.dim(ncom)
     const fSafe = Solver.dim2(lfSafe, nrd)
 
@@ -336,17 +335,17 @@ export class Solver {
         // compute optimal order
         let kopt: number
         if (kc === 2) {
-          kopt = Math.min(3, km - 1)
+          kopt = Math.min(3, this.maxExtrapolationColumns - 1)
           if (reject) kopt = 2
         } else {
           if (kc <= k) {
             kopt = kc
             if (w[kc - 1] < w[kc] * this.stepSizeFac3) kopt = kc - 1
-            if (w[kc] < w[kc - 1] * this.stepSizeFac4) kopt = Math.min(kc + 1, km - 1)
+            if (w[kc] < w[kc - 1] * this.stepSizeFac4) kopt = Math.min(kc + 1, this.maxExtrapolationColumns - 1)
           } else {
             kopt = kc - 1
             if (kc > 3 && w[kc - 2] < w[kc - 1] * this.stepSizeFac3) kopt = kc - 2
-            if (w[kc] < w[kopt] * this.stepSizeFac4) kopt = Math.min(kc, km - 1)
+            if (w[kc] < w[kopt] * this.stepSizeFac4) kopt = Math.min(kc, this.maxExtrapolationColumns - 1)
           }
         }
         // after a rejected step
@@ -547,15 +546,15 @@ export class Solver {
       }
 
       // preparation
-      const ySafe = Solver.dim2(km, nrd)
-      const hh = Solver.dim(km)
-      const t = Solver.dim2(km, this.n)
+      const ySafe = Solver.dim2(this.maxExtrapolationColumns, nrd)
+      const hh = Solver.dim(this.maxExtrapolationColumns)
+      const t = Solver.dim2(this.maxExtrapolationColumns, this.n)
       // Define the step size sequence
-      const nj = Solver.stepSizeSequence(nSeq, km)
+      const nj = Solver.stepSizeSequence(nSeq, this.maxExtrapolationColumns)
       // Define the a[i] for order selection
-      const a = Solver.dim(km)
+      const a = Solver.dim(this.maxExtrapolationColumns)
       a[1] = 1 + nj[1]
-      for (let i = 2; i <= km; ++i) {
+      for (let i = 2; i <= this.maxExtrapolationColumns; ++i) {
         a[i] = a[i - 1] + nj[i]
       }
       // Initial Scaling
@@ -565,22 +564,22 @@ export class Solver {
       }
       // Initial preparations
       const posneg = xEnd - x >= 0 ? 1 : -1
-      let k = Math.max(2, Math.min(km - 1, Math.floor(-Solver.log10(rTol[1] + 1e-40) * 0.6 + 1.5)))
+      let k = Math.max(2, Math.min(this.maxExtrapolationColumns - 1, Math.floor(-Solver.log10(rTol[1] + 1e-40) * 0.6 + 1.5)))
       let h = Math.max(Math.abs(this.initialStepSize), 1e-4)
       h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2)
-      const iPoint = Solver.dim(km + 1)
-      const errfac = Solver.dim(2 * km)
+      const iPoint = Solver.dim(this.maxExtrapolationColumns + 1)
+      const errfac = Solver.dim(2 * this.maxExtrapolationColumns)
       let xOld = x
       let iPt = 0
       if (solOut) {
         if (this.denseOutput) {
           iPoint[1] = 0
-          for (let i = 1; i <= km; ++i) {
+          for (let i = 1; i <= this.maxExtrapolationColumns; ++i) {
             let njAdd = 4 * i - 2
             if (nj[i] > njAdd) ++njAdd
             iPoint[i + 1] = iPoint[i] + njAdd
           }
-          for (let mu = 1; mu <= 2 * km; ++mu) {
+          for (let mu = 1; mu <= 2 * this.maxExtrapolationColumns; ++mu) {
             let errx = Math.sqrt(mu / (mu + 4)) * 0.5
             let prod = (1 / (mu + 4)) ** 2
             for (let j = 1; j <= mu; ++j) prod *= errx / j
@@ -596,7 +595,7 @@ export class Solver {
       let err = 0
       let errOld = 1e10
       let hoptde = posneg * hMax
-      const w = Solver.dim(km)
+      const w = Solver.dim(this.maxExtrapolationColumns)
       w[1] = 0
       let reject = false
       let last = false
@@ -703,7 +702,7 @@ export class Solver {
             continue
 
           case STATE.Reject:
-            k = Math.min(k, kc, km - 1)
+            k = Math.min(k, kc, this.maxExtrapolationColumns - 1)
             if (k > 2 && w[k - 1] < w[k] * this.stepSizeFac3) k -= 1
             ++nReject
             h = posneg * hh[k]

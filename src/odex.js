@@ -132,8 +132,7 @@ var Solver = /** @class */ (function () {
         var yh2 = Solver.dim(this.n);
         if (this.maxSteps <= 0)
             throw new Error('maxSteps must be positive');
-        var km = this.maxExtrapolationColumns;
-        if (km <= 2)
+        if (this.maxExtrapolationColumns <= 2)
             throw new Error('maxExtrapolationColumns must be > 2');
         var nSeq = this.stepSizeSequence || (this.denseOutput ? 4 : 1);
         if (nSeq <= 3 && this.denseOutput)
@@ -167,7 +166,7 @@ var Solver = /** @class */ (function () {
         if (this.uRound <= 1e-35 || this.uRound > 1)
             throw new Error('suspicious value of uRound');
         var hMax = Math.abs(this.maxStepSize || xEnd - x);
-        var lfSafe = 2 * km * km + km;
+        var lfSafe = 2 * this.maxExtrapolationColumns * this.maxExtrapolationColumns + this.maxExtrapolationColumns;
         function expandToArray(x, n) {
             // If x is an array, return a 1-based copy of it. If x is a number, return a new 1-based array
             // consisting of n copies of the number.
@@ -186,7 +185,7 @@ var Solver = /** @class */ (function () {
         var _b = [0, 0, 0, 0], nEval = _b[0], nStep = _b[1], nAccept = _b[2], nReject = _b[3];
         // call to core integrator
         var nrd = Math.max(1, nrdens);
-        var ncom = Math.max(1, (2 * km + 5) * nrdens);
+        var ncom = Math.max(1, (2 * this.maxExtrapolationColumns + 5) * nrdens);
         var dens = Solver.dim(ncom);
         var fSafe = Solver.dim2(lfSafe, nrd);
         // Wrap f in a function F which hides the one-based indexing from the customers.
@@ -196,7 +195,6 @@ var Solver = /** @class */ (function () {
                 yp[i + 1] = ret[i];
         };
         var odxcor = function () {
-            // The following three variables are COMMON/CONTEX/
             var acceptStep = function (n) {
                 // Returns true if we should continue the integration. The only time false
                 // is returned is when the user's solution observation function has returned false,
@@ -317,7 +315,7 @@ var Solver = /** @class */ (function () {
                 // compute optimal order
                 var kopt;
                 if (kc === 2) {
-                    kopt = Math.min(3, km - 1);
+                    kopt = Math.min(3, _this.maxExtrapolationColumns - 1);
                     if (reject)
                         kopt = 2;
                 }
@@ -327,14 +325,14 @@ var Solver = /** @class */ (function () {
                         if (w[kc - 1] < w[kc] * _this.stepSizeFac3)
                             kopt = kc - 1;
                         if (w[kc] < w[kc - 1] * _this.stepSizeFac4)
-                            kopt = Math.min(kc + 1, km - 1);
+                            kopt = Math.min(kc + 1, _this.maxExtrapolationColumns - 1);
                     }
                     else {
                         kopt = kc - 1;
                         if (kc > 3 && w[kc - 2] < w[kc - 1] * _this.stepSizeFac3)
                             kopt = kc - 2;
                         if (w[kc] < w[kopt] * _this.stepSizeFac4)
-                            kopt = Math.min(kc, km - 1);
+                            kopt = Math.min(kc, _this.maxExtrapolationColumns - 1);
                     }
                 }
                 // after a rejected step
@@ -532,15 +530,15 @@ var Solver = /** @class */ (function () {
                 };
             };
             // preparation
-            var ySafe = Solver.dim2(km, nrd);
-            var hh = Solver.dim(km);
-            var t = Solver.dim2(km, _this.n);
+            var ySafe = Solver.dim2(_this.maxExtrapolationColumns, nrd);
+            var hh = Solver.dim(_this.maxExtrapolationColumns);
+            var t = Solver.dim2(_this.maxExtrapolationColumns, _this.n);
             // Define the step size sequence
-            var nj = Solver.stepSizeSequence(nSeq, km);
+            var nj = Solver.stepSizeSequence(nSeq, _this.maxExtrapolationColumns);
             // Define the a[i] for order selection
-            var a = Solver.dim(km);
+            var a = Solver.dim(_this.maxExtrapolationColumns);
             a[1] = 1 + nj[1];
-            for (var i = 2; i <= km; ++i) {
+            for (var i = 2; i <= _this.maxExtrapolationColumns; ++i) {
                 a[i] = a[i - 1] + nj[i];
             }
             // Initial Scaling
@@ -550,23 +548,23 @@ var Solver = /** @class */ (function () {
             }
             // Initial preparations
             var posneg = xEnd - x >= 0 ? 1 : -1;
-            var k = Math.max(2, Math.min(km - 1, Math.floor(-Solver.log10(rTol[1] + 1e-40) * 0.6 + 1.5)));
+            var k = Math.max(2, Math.min(_this.maxExtrapolationColumns - 1, Math.floor(-Solver.log10(rTol[1] + 1e-40) * 0.6 + 1.5)));
             var h = Math.max(Math.abs(_this.initialStepSize), 1e-4);
             h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2);
-            var iPoint = Solver.dim(km + 1);
-            var errfac = Solver.dim(2 * km);
+            var iPoint = Solver.dim(_this.maxExtrapolationColumns + 1);
+            var errfac = Solver.dim(2 * _this.maxExtrapolationColumns);
             var xOld = x;
             var iPt = 0;
             if (solOut) {
                 if (_this.denseOutput) {
                     iPoint[1] = 0;
-                    for (var i = 1; i <= km; ++i) {
+                    for (var i = 1; i <= _this.maxExtrapolationColumns; ++i) {
                         var njAdd = 4 * i - 2;
                         if (nj[i] > njAdd)
                             ++njAdd;
                         iPoint[i + 1] = iPoint[i] + njAdd;
                     }
-                    for (var mu = 1; mu <= 2 * km; ++mu) {
+                    for (var mu = 1; mu <= 2 * _this.maxExtrapolationColumns; ++mu) {
                         var errx = Math.sqrt(mu / (mu + 4)) * 0.5;
                         var prod = Math.pow((1 / (mu + 4)), 2);
                         for (var j = 1; j <= mu; ++j)
@@ -583,7 +581,7 @@ var Solver = /** @class */ (function () {
             var err = 0;
             var errOld = 1e10;
             var hoptde = posneg * hMax;
-            var w = Solver.dim(km);
+            var w = Solver.dim(_this.maxExtrapolationColumns);
             w[1] = 0;
             var reject = false;
             var last = false;
@@ -699,7 +697,7 @@ var Solver = /** @class */ (function () {
                         state = STATE.Start;
                         continue;
                     case STATE.Reject:
-                        k = Math.min(k, kc, km - 1);
+                        k = Math.min(k, kc, _this.maxExtrapolationColumns - 1);
                         if (k > 2 && w[k - 1] < w[k] * _this.stepSizeFac3)
                             k -= 1;
                         ++nReject;
