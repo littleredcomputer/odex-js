@@ -188,12 +188,6 @@ class Solver {
         const ncom = Math.max(1, (2 * this.maxExtrapolationColumns + 5) * nrdens);
         const dens = Solver.dim(ncom);
         const fSafe = Solver.dim2(lfSafe, nrd);
-        // Wrap f in a function F which hides the one-based indexing from the customers.
-        const F = (x, y, yp) => {
-            let ret = f(x, y.slice(1));
-            for (let i = 0; i < ret.length; ++i)
-                yp[i + 1] = ret[i];
-        };
         let odxcor = () => {
             let acceptStep = () => {
                 // Returns true if we should continue the integration. The only time false
@@ -338,19 +332,19 @@ class Solver {
                 // after a rejected step
                 if (reject) {
                     k = Math.min(kopt, kc);
-                    h = posneg * Math.min(Math.abs(h), Math.abs(hh[k]));
+                    h = posneg * Math.min(Math.abs(h), Math.abs(hh[k - 1]));
                     reject = false;
                     return true; // goto 10
                 }
                 if (kopt <= kc) {
-                    h = hh[kopt];
+                    h = hh[kopt - 1];
                 }
                 else {
                     if (kc < k && w[kc] < w[kc - 1] * this.stepSizeFac4) {
-                        h = hh[kc] * a[kopt + 1] / a[kc];
+                        h = hh[kc - 1] * a[kopt + 1] / a[kc];
                     }
                     else {
-                        h = hh[kc] * a[kopt] / a[kc];
+                        h = hh[kc - 1] * a[kopt] / a[kc];
                     }
                 }
                 // compute stepsize for next step
@@ -452,8 +446,8 @@ class Solver {
                 let facMin = Math.pow(this.stepSizeFac1, exp0);
                 fac = Math.min(this.stepSizeFac2 / facMin, Math.max(facMin, Math.pow((err / this.stepSafetyFactor1), exp0) / this.stepSafetyFactor2));
                 fac = 1 / fac;
-                hh[j] = Math.min(Math.abs(h) * fac, hMax);
-                w[j] = a[j] / hh[j];
+                hh[j - 1] = Math.min(Math.abs(h) * fac, hMax);
+                w[j] = a[j] / hh[j - 1];
             };
             const interp = (n, y, imit) => {
                 // computes the coefficients of the interpolation formula
@@ -531,7 +525,7 @@ class Solver {
             };
             // preparation
             const ySafe = Solver.dim2(this.maxExtrapolationColumns, nrd);
-            const hh = Solver.dim(this.maxExtrapolationColumns);
+            const hh = Array(this.maxExtrapolationColumns);
             const t = Solver.dim2(this.maxExtrapolationColumns, this.n);
             // Define the step size sequence
             const nj = Solver.stepSizeSequence(nSeq, this.maxExtrapolationColumns);
@@ -701,7 +695,7 @@ class Solver {
                         if (k > 2 && w[k - 1] < w[k] * this.stepSizeFac3)
                             k -= 1;
                         ++nReject;
-                        h = posneg * hh[k];
+                        h = posneg * hh[k - 1];
                         reject = true;
                         state = STATE.BasicIntegrationStep;
                 }

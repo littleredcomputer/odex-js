@@ -339,6 +339,38 @@ describe('Odex', () => {
     }))
     it('rejected some steps', () => assert(o.nReject > 0))
   })
+  describe('Arenstorf orbit', () => {
+    const mu = 0.012277471
+    const nu = 1-mu
+    function arenstorf(x:number, y:number[]) {
+      const [y1, y1p, y2, y2p] = y
+      const D1 = ((y1 + mu)**2 + y2**2) ** (3/2)
+      const D2 = ((y1 - nu)**2 + y2**2) ** (3/2)
+      return [
+        y1p,
+        y1 + 2 * y2p - nu * (y1 + mu) / D1 - mu * (y1 - nu) / D2,
+        y2p,
+        y2 - 2 * y1p - nu * y2 / D1 - mu * y2 / D2
+      ]
+    }
+    const y0 = [0.994, 0, 0, -2.00158510637908252240537862224]
+    const o = 17.0652165601579625588917206249
+    let s = NewSolver(4)
+    s.denseOutput = true
+    s.absoluteTolerance = s.relativeTolerance = 1e-13
+    s.maxSteps = 450
+    const numOrbits = 3
+    let result = s.solve(arenstorf, 0, y0, numOrbits*o, s.grid(o, (x, y) => {
+      // Compute the relative error vs. y0
+      const v = y.slice()
+      for (let i = 0; i < 4; ++i) {
+        it('returns to initial conditions at time ' + x + ' coordinate ' + i, () => {
+          assert(Math.abs(v[i] - y0[i])/(y0[i] == 0 ? 1 : y0[i]) < 0.0001)
+        })
+      }
+    }))
+    it('converges', () => { assert(result.outcome === Outcome.Converged)})
+  })
   describe('Configuration debugging', () => {
     it ('throws when you use grid without denseOutput', () => {
       let s = NewSolver(1)
