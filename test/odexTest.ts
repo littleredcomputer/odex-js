@@ -151,15 +151,16 @@ describe('Odex', () => {
   describe('cosine (observer)', () => {
     let s = NewSolver(2)
     let o = s.solve(trig, 0, [1, 0], 2 * Math.PI, (n, xOld, x, y) => {
-      it('is accurate at grid point ' + n, () => assert(Math.abs(y[0] - Math.cos(x)) < 1e-4))
-      // console.log('observed cos', Math.abs(y[0]-Math.cos(x)))
+      const value = y[0]
+      it('is accurate at grid point ' + n, () => assert(Math.abs(value - Math.cos(x)) < 1e-4))
     })
     it('converged', () => assert(o.outcome === Outcome.Converged))
   })
   describe('sine (observer)', () => {
     let s = NewSolver(2)
     let o = s.solve(trig, 0, [0, 1], 2 * Math.PI, (n, xOld, x, y) => {
-      it('is accurate at grid point ' + n, () => assert(Math.abs(y[0] - Math.sin(x)) < 1e-5))
+      const value = y[0]
+      it('is accurate at grid point ' + n, () => assert(Math.abs(value - Math.sin(x)) < 1e-5))
     })
     it('converged', () => assert(o.outcome === Outcome.Converged))
   })
@@ -210,8 +211,8 @@ describe('Odex', () => {
     let s = NewSolver(2)
     s.denseOutput = false
     let o = s.solve(trig, 0, [1, 0], 16 * Math.PI, (n, xOld, x, y) => {
-      it('is accurate at grid point ' + n, () => assert(Math.abs(y[0] - Math.cos(x)) < 2e-4))
-      // console.log('observed cos l.r.', n, x, y[0], Math.abs(y[0]-Math.cos(x)))
+      const value = y[0]
+      it('is accurate at grid point ' + n, () => assert(Math.abs(value - Math.cos(x)) < 2e-4))
     })
     it('converged', () => assert(o.outcome === Outcome.Converged))
     it('evaluated f the correct number of times', () => assert(o.nEval === 920))

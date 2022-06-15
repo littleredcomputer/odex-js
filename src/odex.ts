@@ -126,6 +126,16 @@ export class Solver {
     return a
   }
 
+  private expandToArray(x: number|number[]): number[] {
+    // If x is an array, return it. If x is a number, return a new array, sized
+    // to the dimension of the problem, filled with the number.
+    if (Array.isArray(x)) {
+      return x
+    } else {
+      return Array(this.n).fill(x, 0)
+    }
+  }
+
   // Generate step size sequence and return as a 1-based array of length n.
   static stepSizeSequence(nSeq: number, n: number): number[] {
     const a = new Array(n + 1)
@@ -164,8 +174,7 @@ export class Solver {
         xEnd: number,
         solOut?: OutputFunction) {
 
-    // Make a copy of y0, 1-based. We leave the user's parameters alone so that they may be reused if desired.
-    let y = [0].concat(y0)
+    let y = y0.slice()
     let dz = Solver.dim(this.n)
     let yh1 = Solver.dim(this.n)
     let yh2 = Solver.dim(this.n)
@@ -198,20 +207,8 @@ export class Solver {
     const hMax = Math.abs(this.maxStepSize || xEnd - x)
     const lfSafe = 2 * this.maxExtrapolationColumns * this.maxExtrapolationColumns + this.maxExtrapolationColumns
 
-    function expandToArray(x: number|number[], n: number): number[] {
-      // If x is an array, return a 1-based copy of it. If x is a number, return a new 1-based array
-      // consisting of n copies of the number.
-      const tolArray = [0]
-      if (Array.isArray(x)) {
-        return tolArray.concat(x)
-      } else {
-        for (let i = 0; i < n; ++i) tolArray.push(x)
-        return tolArray
-      }
-    }
-
-    const aTol = expandToArray(this.absoluteTolerance, this.n)
-    const rTol = expandToArray(this.relativeTolerance, this.n)
+    const aTol = this.expandToArray(this.absoluteTolerance)
+    const rTol = this.expandToArray(this.relativeTolerance)
     let [nEval, nStep, nAccept, nReject] = [0, 0, 0, 0]
 
     // call to core integrator
@@ -228,7 +225,7 @@ export class Solver {
 
     let odxcor = (): Outcome => {
 
-      let acceptStep = (n: number): boolean => {   // label 60
+      let acceptStep = (): boolean => {   // label 60
         // Returns true if we should continue the integration. The only time false
         // is returned is when the user's solution observation function has returned false,
         // indicating that she does not wish to continue the computation.
@@ -237,7 +234,7 @@ export class Solver {
         const kmit = 2 * kc - this.interpolationFormulaDegree + 1
         if (this.denseOutput) {
           // kmit = mu of the paper
-          for (let i = 1; i <= nrd; ++i) dens[i] = y[icom[i]]
+          for (let i = 1; i <= nrd; ++i) dens[i] = y[icom[i] - 1]
           for (let i = 1; i <= nrd; ++i) dens[nrd + i] = h * dz[icom[i]]
           let kln = 2 * nrd
           for (let i = 1; i <= nrd; ++i) dens[kln + i] = t[1][icom[i]]
@@ -254,7 +251,7 @@ export class Solver {
           let krn = 4 * nrd
           for (let i = 1; i <= nrd; ++i) dens[krn + i] = ySafe[1][i]
           // compute first derivative at right end
-          for (let i = 1; i <= n; ++i) yh1[i] = t[1][i]
+          for (let i = 1; i <= this.n; ++i) yh1[i] = t[1][i]
           F(x, yh1, yh2)
           krn = 3 * nrd
           for (let i = 1; i <= nrd; ++i) dens[krn + i] = yh2[icom[i]] * h
@@ -312,7 +309,7 @@ export class Solver {
           // estimation of interpolation error
           if (this.denseOutputErrorEstimator && kmit >= 1) {
             let errint = 0
-            for (let i = 1; i <= nrd; ++i) errint += (dens[(kmit + 4) * nrd + i] / scal[icom[i]]) ** 2
+            for (let i = 1; i <= nrd; ++i) errint += (dens[(kmit + 4) * nrd + i] / scal[icom[i]-1]) ** 2
             errint = Math.sqrt(errint / nrd) * errfac[kmit]
             hoptde = h / Math.max(errint ** (1 / (kmit + 4)), 0.01)
             if (errint > 10) {
@@ -323,13 +320,13 @@ export class Solver {
               return true
             }
           }
-          for (let i = 1; i <= n; ++i) dz[i] = yh2[i]
+          for (let i = 1; i <= this.n; ++i) dz[i] = yh2[i]
         }
-        for (let i = 1; i <= n; ++i) y[i] = t[1][i]
+        for (let i = 0; i < this.n; ++i) y[i] = t[1][i+1]
         ++nAccept
         if (solOut) {
           // If denseOutput, we also want to supply the dense closure.
-          if (solOut(nAccept + 1, xOld, x, y.slice(1),
+          if (solOut(nAccept + 1, xOld, x, y,
               this.denseOutput && contex(xOld, h, kmit, dens, icom)) === false) return false
         }
         // compute optimal order
@@ -378,9 +375,9 @@ export class Solver {
         // provides an estimation of the optional stepsize
         const hj = h / nj[j]
         // Euler starting step
-        for (let i = 1; i <= this.n; ++i) {
-          yh1[i] = y[i]
-          yh2[i] = y[i] + hj * dz[i]
+        for (let i = 0; i < this.n; ++i) {
+          yh1[i+1] = y[i]
+          yh2[i+1] = y[i] + hj * dz[i+1]
         }
         // Explicit midpoint rule
         const m = nj[j] - 1
@@ -407,11 +404,11 @@ export class Solver {
             // stability check
             let del1 = 0
             for (let i = 1; i <= this.n; ++i) {
-              del1 += (dz[i] / scal[i]) ** 2
+              del1 += (dz[i] / scal[i-1]) ** 2
             }
             let del2 = 0
             for (let i = 1; i <= this.n; ++i) {
-              del2 += ((dy[i] - dz[i]) / scal[i]) ** 2
+              del2 += ((dy[i] - dz[i]) / scal[i-1]) ** 2
             }
             const quot = del2 / Math.max(this.uRound, del1)
             if (quot > 4) {
@@ -447,10 +444,10 @@ export class Solver {
         }
         err = 0
         // scaling
-        for (let i = 1; i <= this.n; ++i) {
-          let t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i]))
+        for (let i = 0; i < this.n; ++i) {
+          let t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i+1]))
           scal[i] = aTol[i] + rTol[i] * t1i
-          err += ((t[1][i] - t[2][i]) / scal[i]) ** 2
+          err += ((t[1][i+1] - t[2][i+1]) / scal[i]) ** 2
         }
         err = Math.sqrt(err / this.n)
         if (err * this.uRound >= 1 || (j > 2 && err >= errOld)) {
@@ -558,13 +555,13 @@ export class Solver {
         a[i] = a[i - 1] + nj[i]
       }
       // Initial Scaling
-      const scal = Solver.dim(this.n)
-      for (let i = 1; i <= this.n; ++i) {
+      const scal = Array(this.n)
+      for (let i = 0; i < this.n; ++i) {
         scal[i] = aTol[i] + rTol[i] + Math.abs(y[i])
       }
       // Initial preparations
       const posneg = xEnd - x >= 0 ? 1 : -1
-      let k = Math.max(2, Math.min(this.maxExtrapolationColumns - 1, Math.floor(-Solver.log10(rTol[1] + 1e-40) * 0.6 + 1.5)))
+      let k = Math.max(2, Math.min(this.maxExtrapolationColumns - 1, Math.floor(-Solver.log10(rTol[0] + 1e-40) * 0.6 + 1.5)))
       let h = Math.max(Math.abs(this.initialStepSize), 1e-4)
       h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2)
       const iPoint = Solver.dim(this.maxExtrapolationColumns + 1)
@@ -588,7 +585,7 @@ export class Solver {
           iPt = 0
         }
         // check return value and abandon integration if called for
-        if (false === solOut(nAccept + 1, xOld, x, y.slice(1))) {
+        if (false === solOut(nAccept + 1, xOld, x, y)) {
           return Outcome.EarlyReturn
         }
       }
@@ -620,7 +617,7 @@ export class Solver {
               last = true
             }
             if (nStep === 0 || !this.denseOutput) {
-              F(x, y, dz)
+              F(x, [0].concat(y), dz)
               ++nEval
             }
             // The first and last step
@@ -697,7 +694,7 @@ export class Solver {
             continue
 
           case STATE.Accept:
-            if (!acceptStep(this.n)) return Outcome.EarlyReturn
+            if (!acceptStep()) return Outcome.EarlyReturn
             state = STATE.Start
             continue
 
@@ -715,7 +712,7 @@ export class Solver {
 
     const outcome = odxcor()
     return {
-      y: y.slice(1),
+      y: y,
       outcome: outcome,
       nStep: nStep,
       xEnd: xEnd,
