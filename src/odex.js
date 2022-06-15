@@ -359,7 +359,7 @@ class Solver {
                 return true;
             };
             let midex = (j) => {
-                const dy = Solver.dim(this.n);
+                const dy = Array(this.n);
                 // Computes the jth line of the extrapolation table and
                 // provides an estimation of the optional stepsize
                 const hj = h / nj[j];
@@ -377,17 +377,17 @@ class Solver {
                             ySafe[j][i] = yh2[icom[i] - 1];
                         }
                     }
-                    F(x + hj * mm, [0].concat(yh2), dy);
+                    this.copy(dy, f(x + hj * mm, yh2));
                     if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
                         ++iPt;
                         for (let i = 1; i <= nrd; ++i) {
-                            fSafe[iPt][i] = dy[icom[i]];
+                            fSafe[iPt][i] = dy[icom[i] - 1];
                         }
                     }
-                    for (let i = 1; i <= this.n; ++i) {
-                        let ys = yh1[i - 1];
-                        yh1[i - 1] = yh2[i - 1];
-                        yh2[i - 1] = ys + 2 * hj * dy[i];
+                    for (let i = 0; i < this.n; ++i) {
+                        let ys = yh1[i];
+                        yh1[i] = yh2[i];
+                        yh2[i] = ys + 2 * hj * dy[i];
                     }
                     if (mm <= this.stabilityCheckCount && j <= this.stabilityCheckTableLines) {
                         // stability check
@@ -396,8 +396,8 @@ class Solver {
                             del1 += Math.pow((dz[i] / scal[i]), 2);
                         }
                         let del2 = 0;
-                        for (let i = 1; i <= this.n; ++i) {
-                            del2 += Math.pow(((dy[i] - dz[i - 1]) / scal[i - 1]), 2);
+                        for (let i = 0; i < this.n; ++i) {
+                            del2 += Math.pow(((dy[i] - dz[i]) / scal[i]), 2);
                         }
                         const quot = del2 / Math.max(this.uRound, del1);
                         if (quot > 4) {
@@ -410,15 +410,15 @@ class Solver {
                     }
                 }
                 // final smoothing step
-                F(x + h, [0].concat(yh2), dy);
+                this.copy(dy, f(x + h, yh2));
                 if (this.denseOutput && njMid <= 2 * j - 1) {
                     ++iPt;
                     for (let i = 1; i <= nrd; ++i) {
-                        fSafe[iPt][i] = dy[icom[i]];
+                        fSafe[iPt][i] = dy[icom[i] - 1];
                     }
                 }
-                for (let i = 1; i <= this.n; ++i) {
-                    t[j][i] = (yh1[i - 1] + yh2[i - 1] + hj * dy[i]) / 2;
+                for (let i = 0; i < this.n; ++i) {
+                    t[j][i + 1] = (yh1[i] + yh2[i] + hj * dy[i]) / 2;
                 }
                 nEval += nj[j];
                 // polynomial extrapolation
