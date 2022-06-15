@@ -17,6 +17,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { assert } from "console"
+
 export interface Derivative {  // function computing the value of Y' = F(x,Y)
   (x: number,           // input x value
    y: number[])         // input y value)
@@ -136,6 +138,12 @@ export class Solver {
     }
   }
 
+  private copy(a: number[], b: number[]): void {
+    // Copy the elements of b into a
+    assert(a.length === b.length)
+    for (let i = 0; i < a.length; ++i) a[i] = b[i]
+  }
+
   // Generate step size sequence and return as a 1-based array of length n.
   static stepSizeSequence(nSeq: number, n: number): number[] {
     const a = new Array(n + 1)
@@ -175,9 +183,9 @@ export class Solver {
         solOut?: OutputFunction) {
 
     let y = y0.slice()
-    let dz = Solver.dim(this.n)
-    let yh1 = Solver.dim(this.n)
-    let yh2 = Solver.dim(this.n)
+    let dz = Array(this.n)
+    let yh1 = Array(this.n)
+    let yh2 = Array(this.n)
     if (this.maxSteps <= 0) throw new Error('maxSteps must be positive')
     if (this.maxExtrapolationColumns <= 2) throw new Error('maxExtrapolationColumns must be > 2')
     const nSeq = this.stepSizeSequence || (this.denseOutput ? 4 : 1)
@@ -235,7 +243,7 @@ export class Solver {
         if (this.denseOutput) {
           // kmit = mu of the paper
           for (let i = 1; i <= nrd; ++i) dens[i] = y[icom[i] - 1]
-          for (let i = 1; i <= nrd; ++i) dens[nrd + i] = h * dz[icom[i]]
+          for (let i = 1; i <= nrd; ++i) dens[nrd + i] = h * dz[icom[i]-1]
           let kln = 2 * nrd
           for (let i = 1; i <= nrd; ++i) dens[kln + i] = t[1][icom[i]]
           // compute solution at mid-point
@@ -251,10 +259,10 @@ export class Solver {
           let krn = 4 * nrd
           for (let i = 1; i <= nrd; ++i) dens[krn + i] = ySafe[1][i]
           // compute first derivative at right end
-          for (let i = 1; i <= this.n; ++i) yh1[i] = t[1][i]
-          F(x, yh1, yh2)
+          for (let i = 1; i <= this.n; ++i) yh1[i-1] = t[1][i]
+          this.copy(yh2, f(x, yh1))
           krn = 3 * nrd
-          for (let i = 1; i <= nrd; ++i) dens[krn + i] = yh2[icom[i]] * h
+          for (let i = 1; i <= nrd; ++i) dens[krn + i] = yh2[icom[i]-1] * h
           // THE LOOP
           for (let kmi = 1; kmi <= kmit; ++kmi) {
             // compute kmi-th derivative at mid-point
@@ -291,7 +299,7 @@ export class Solver {
               }
               if (kmi === 1 && nSeq === 4) {
                 l = lend - 2
-                for (let i = 1; i <= nrd; ++i) fSafe[l][i] -= dz[icom[i]]
+                for (let i = 1; i <= nrd; ++i) fSafe[l][i] -= dz[icom[i]-1]
               }
             }
             // compute differences
@@ -320,7 +328,7 @@ export class Solver {
               return true
             }
           }
-          for (let i = 1; i <= this.n; ++i) dz[i] = yh2[i]
+          for (let i = 1; i <= this.n; ++i) dz[i-1] = yh2[i-1]
         }
         for (let i = 0; i < this.n; ++i) y[i] = t[1][i+1]
         ++nAccept
@@ -376,8 +384,8 @@ export class Solver {
         const hj = h / nj[j]
         // Euler starting step
         for (let i = 0; i < this.n; ++i) {
-          yh1[i+1] = y[i]
-          yh2[i+1] = y[i] + hj * dz[i+1]
+          yh1[i] = y[i]
+          yh2[i] = y[i] + hj * dz[i]
         }
         // Explicit midpoint rule
         const m = nj[j] - 1
@@ -385,10 +393,10 @@ export class Solver {
         for (let mm = 1; mm <= m; ++mm) {
           if (this.denseOutput && mm === njMid) {
             for (let i = 1; i <= nrd; ++i) {
-              ySafe[j][i] = yh2[icom[i]]
+              ySafe[j][i] = yh2[icom[i]-1]
             }
           }
-          F(x + hj * mm, yh2, dy)
+          F(x + hj * mm, [0].concat(yh2), dy)
           if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
             ++iPt
             for (let i = 1; i <= nrd; ++i) {
@@ -396,19 +404,19 @@ export class Solver {
             }
           }
           for (let i = 1; i <= this.n; ++i) {
-            let ys = yh1[i]
-            yh1[i] = yh2[i]
-            yh2[i] = ys + 2 * hj * dy[i]
+            let ys = yh1[i-1]
+            yh1[i-1] = yh2[i-1]
+            yh2[i-1] = ys + 2 * hj * dy[i]
           }
           if (mm <= this.stabilityCheckCount && j <= this.stabilityCheckTableLines) {
             // stability check
             let del1 = 0
-            for (let i = 1; i <= this.n; ++i) {
-              del1 += (dz[i] / scal[i-1]) ** 2
+            for (let i = 0; i < this.n; ++i) {
+              del1 += (dz[i] / scal[i]) ** 2
             }
             let del2 = 0
             for (let i = 1; i <= this.n; ++i) {
-              del2 += ((dy[i] - dz[i]) / scal[i-1]) ** 2
+              del2 += ((dy[i] - dz[i-1]) / scal[i-1]) ** 2
             }
             const quot = del2 / Math.max(this.uRound, del1)
             if (quot > 4) {
@@ -421,7 +429,7 @@ export class Solver {
           }
         }
         // final smoothing step
-        F(x + h, yh2, dy)
+        F(x + h, [0].concat(yh2), dy)
         if (this.denseOutput && njMid <= 2 * j - 1) {
           ++iPt
           for (let i = 1; i <= nrd; ++i) {
@@ -429,7 +437,7 @@ export class Solver {
           }
         }
         for (let i = 1; i <= this.n; ++i) {
-          t[j][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2
+          t[j][i] = (yh1[i-1] + yh2[i-1] + hj * dy[i]) / 2
         }
         nEval += nj[j]
         // polynomial extrapolation
@@ -617,7 +625,7 @@ export class Solver {
               last = true
             }
             if (nStep === 0 || !this.denseOutput) {
-              F(x, [0].concat(y), dz)
+              this.copy(dz, f(x, y))
               ++nEval
             }
             // The first and last step

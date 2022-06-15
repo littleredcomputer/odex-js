@@ -19,7 +19,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 const odex_1 = require("../src/odex");
-const assert = require("power-assert");
+const assert = require("assert");
 describe('Odex', () => {
     let NewSolver = (n) => {
         let s = new odex_1.Solver(n);

@@ -18,7 +18,7 @@
  */
 
 import {Solver, Outcome, Derivative} from '../src/odex'
-import assert = require('power-assert')
+import assert = require('assert')
 
 describe('Odex', () => {
   let NewSolver = (n: number) => {
