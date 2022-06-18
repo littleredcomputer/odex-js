@@ -365,6 +365,8 @@ describe('Odex', () => {
       const v = y.slice()
       for (let i = 0; i < 4; ++i) {
         it('returns to initial conditions at time ' + x + ' coordinate ' + i, () => {
+          // Measure relative error (except for the coordinates with zero initial value,
+          // use absolute error for those)
           assert(Math.abs(v[i] - y0[i])/(y0[i] == 0 ? 1 : y0[i]) < 0.0001)
         })
       }

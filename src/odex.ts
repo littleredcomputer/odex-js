@@ -119,7 +119,6 @@ export class Solver {
 
   // return a 1-based array of length n. Initial values undefined.
   private static dim = (n: number) => Array(n + 1)
-  private static log10 = (x: number) => Math.log(x) / Math.LN10
 
   // Make a 1-based 2D array, with r rows and c columns. The initial values are undefined.
   private static dim2(r: number, c: number): number[][] {
@@ -192,7 +191,7 @@ export class Solver {
     if (nSeq <= 3 && this.denseOutput) throw new Error('stepSizeSequence incompatible with denseOutput')
     if (this.denseOutput && !solOut) throw new Error('denseOutput requires a solution observer function')
     if (this.interpolationFormulaDegree <= 0 || this.interpolationFormulaDegree >= 7) throw new Error('bad interpolationFormulaDegree')
-    let icom = [0]  // icom will be 1-based, so start with a pad entry.
+    let icom: number[] = []
     let nrdens = 0
     if (this.denseOutput) {
       if (this.denseComponents) {
@@ -236,10 +235,10 @@ export class Solver {
         const kmit = 2 * kc - this.interpolationFormulaDegree + 1
         if (this.denseOutput) {
           // kmit = mu of the paper
-          for (let i = 1; i <= nrd; ++i) dens[i] = y[icom[i] - 1]
-          for (let i = 1; i <= nrd; ++i) dens[nrd + i] = h * dz[icom[i]-1]
+          for (let i = 1; i <= nrd; ++i) dens[i] = y[icom[i-1] - 1]
+          for (let i = 1; i <= nrd; ++i) dens[nrd + i] = h * dz[icom[i-1]-1]
           let kln = 2 * nrd
-          for (let i = 1; i <= nrd; ++i) dens[kln + i] = t[1][icom[i]]
+          for (let i = 1; i <= nrd; ++i) dens[kln + i] = t[1][icom[i-1]]
           // compute solution at mid-point
           for (let j = 2; j <= kc; ++j) {
             let dblenj = nj[j]
@@ -256,7 +255,7 @@ export class Solver {
           for (let i = 1; i <= this.n; ++i) yh1[i-1] = t[1][i]
           this.copy(yh2, f(x, yh1))
           krn = 3 * nrd
-          for (let i = 1; i <= nrd; ++i) dens[krn + i] = yh2[icom[i]-1] * h
+          for (let i = 1; i <= nrd; ++i) dens[krn + i] = yh2[icom[i-1]-1] * h
           // THE LOOP
           for (let kmi = 1; kmi <= kmit; ++kmi) {
             // compute kmi-th derivative at mid-point
@@ -293,7 +292,7 @@ export class Solver {
               }
               if (kmi === 1 && nSeq === 4) {
                 l = lend - 2
-                for (let i = 1; i <= nrd; ++i) fSafe[l][i] -= dz[icom[i]-1]
+                for (let i = 1; i <= nrd; ++i) fSafe[l][i] -= dz[icom[i-1]-1]
               }
             }
             // compute differences
@@ -311,7 +310,7 @@ export class Solver {
           // estimation of interpolation error
           if (this.denseOutputErrorEstimator && kmit >= 1) {
             let errint = 0
-            for (let i = 1; i <= nrd; ++i) errint += (dens[(kmit + 4) * nrd + i] / scal[icom[i]-1]) ** 2
+            for (let i = 1; i <= nrd; ++i) errint += (dens[(kmit + 4) * nrd + i] / scal[icom[i-1]-1]) ** 2
             errint = Math.sqrt(errint / nrd) * errfac[kmit]
             hoptde = h / Math.max(errint ** (1 / (kmit + 4)), 0.01)
             if (errint > 10) {
@@ -362,8 +361,6 @@ export class Solver {
           } else {
             h = hh[kc-1] * a[kopt] / a[kc]
           }
-
-
         }
         // compute stepsize for next step
         k = kopt
@@ -387,14 +384,14 @@ export class Solver {
         for (let mm = 1; mm <= m; ++mm) {
           if (this.denseOutput && mm === njMid) {
             for (let i = 1; i <= nrd; ++i) {
-              ySafe[j][i] = yh2[icom[i]-1]
+              ySafe[j][i] = yh2[icom[i-1]-1]
             }
           }
           this.copy(dy, f(x + hj * mm, yh2))
           if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
             ++iPt
             for (let i = 1; i <= nrd; ++i) {
-              fSafe[iPt][i] = dy[icom[i]-1]
+              fSafe[iPt][i] = dy[icom[i-1]-1]
             }
           }
           for (let i = 0; i < this.n; ++i) {
@@ -427,7 +424,7 @@ export class Solver {
         if (this.denseOutput && njMid <= 2 * j - 1) {
           ++iPt
           for (let i = 1; i <= nrd; ++i) {
-            fSafe[iPt][i] = dy[icom[i]-1]
+            fSafe[iPt][i] = dy[icom[i-1]-1]
           }
         }
         for (let i = 0; i < this.n; ++i) {
@@ -525,12 +522,12 @@ export class Solver {
                       y: number[],
                       icom: number[]) => {
         return (c: number, x: number) => {
-          let i = 0
-          for (let j = 1; j <= nrd; ++j) {
-            // careful: customers describe components 0-based. We record indices 1-based.
-            if (icom[j] === c + 1) i = j
+          let i = -1
+          for (let j = 0; j < nrd; ++j) {
+            // careful: customers describe components 0-based. We record indices 1-based, in a 0-based array.
+            if (icom[j] === c + 1) i = j + 1
           }
-          if (i === 0) throw new Error('no dense output available for component ' + c)
+          if (i === -1) throw new Error('no dense output available for component ' + c)
           const theta = (x - xOld) / h
           const theta1 = 1 - theta
           const phthet = y[i] + theta * (y[nrd + i] + theta1 * (y[2 * nrd + i] * theta + y[3 * nrd + i] * theta1))
@@ -563,7 +560,7 @@ export class Solver {
       }
       // Initial preparations
       const posneg = xEnd - x >= 0 ? 1 : -1
-      let k = Math.max(2, Math.min(this.maxExtrapolationColumns - 1, Math.floor(-Solver.log10(rTol[0] + 1e-40) * 0.6 + 1.5)))
+      let k = Math.max(2, Math.min(this.maxExtrapolationColumns - 1, Math.floor(-Math.log10(rTol[0] + 1e-40) * 0.6 + 1.5)))
       let h = Math.max(Math.abs(this.initialStepSize), 1e-4)
       h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2)
       const iPoint = Solver.dim(this.maxExtrapolationColumns + 1)

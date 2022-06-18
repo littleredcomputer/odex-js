@@ -155,7 +155,7 @@ class Solver {
             throw new Error('denseOutput requires a solution observer function');
         if (this.interpolationFormulaDegree <= 0 || this.interpolationFormulaDegree >= 7)
             throw new Error('bad interpolationFormulaDegree');
-        let icom = [0]; // icom will be 1-based, so start with a pad entry.
+        let icom = [];
         let nrdens = 0;
         if (this.denseOutput) {
             if (this.denseComponents) {
@@ -199,12 +199,12 @@ class Solver {
                 if (this.denseOutput) {
                     // kmit = mu of the paper
                     for (let i = 1; i <= nrd; ++i)
-                        dens[i] = y[icom[i] - 1];
+                        dens[i] = y[icom[i - 1] - 1];
                     for (let i = 1; i <= nrd; ++i)
-                        dens[nrd + i] = h * dz[icom[i] - 1];
+                        dens[nrd + i] = h * dz[icom[i - 1] - 1];
                     let kln = 2 * nrd;
                     for (let i = 1; i <= nrd; ++i)
-                        dens[kln + i] = t[1][icom[i]];
+                        dens[kln + i] = t[1][icom[i - 1]];
                     // compute solution at mid-point
                     for (let j = 2; j <= kc; ++j) {
                         let dblenj = nj[j];
@@ -224,7 +224,7 @@ class Solver {
                     this.copy(yh2, f(x, yh1));
                     krn = 3 * nrd;
                     for (let i = 1; i <= nrd; ++i)
-                        dens[krn + i] = yh2[icom[i] - 1] * h;
+                        dens[krn + i] = yh2[icom[i - 1] - 1] * h;
                     // THE LOOP
                     for (let kmi = 1; kmi <= kmit; ++kmi) {
                         // compute kmi-th derivative at mid-point
@@ -265,7 +265,7 @@ class Solver {
                             if (kmi === 1 && nSeq === 4) {
                                 l = lend - 2;
                                 for (let i = 1; i <= nrd; ++i)
-                                    fSafe[l][i] -= dz[icom[i] - 1];
+                                    fSafe[l][i] -= dz[icom[i - 1] - 1];
                             }
                         }
                         // compute differences
@@ -284,7 +284,7 @@ class Solver {
                     if (this.denseOutputErrorEstimator && kmit >= 1) {
                         let errint = 0;
                         for (let i = 1; i <= nrd; ++i)
-                            errint += Math.pow((dens[(kmit + 4) * nrd + i] / scal[icom[i] - 1]), 2);
+                            errint += Math.pow((dens[(kmit + 4) * nrd + i] / scal[icom[i - 1] - 1]), 2);
                         errint = Math.sqrt(errint / nrd) * errfac[kmit];
                         hoptde = h / Math.max(Math.pow(errint, (1 / (kmit + 4))), 0.01);
                         if (errint > 10) {
@@ -368,14 +368,14 @@ class Solver {
                 for (let mm = 1; mm <= m; ++mm) {
                     if (this.denseOutput && mm === njMid) {
                         for (let i = 1; i <= nrd; ++i) {
-                            ySafe[j][i] = yh2[icom[i] - 1];
+                            ySafe[j][i] = yh2[icom[i - 1] - 1];
                         }
                     }
                     this.copy(dy, f(x + hj * mm, yh2));
                     if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
                         ++iPt;
                         for (let i = 1; i <= nrd; ++i) {
-                            fSafe[iPt][i] = dy[icom[i] - 1];
+                            fSafe[iPt][i] = dy[icom[i - 1] - 1];
                         }
                     }
                     for (let i = 0; i < this.n; ++i) {
@@ -408,7 +408,7 @@ class Solver {
                 if (this.denseOutput && njMid <= 2 * j - 1) {
                     ++iPt;
                     for (let i = 1; i <= nrd; ++i) {
-                        fSafe[iPt][i] = dy[icom[i] - 1];
+                        fSafe[iPt][i] = dy[icom[i - 1] - 1];
                     }
                 }
                 for (let i = 0; i < this.n; ++i) {
@@ -502,13 +502,13 @@ class Solver {
             };
             const contex = (xOld, h, imit, y, icom) => {
                 return (c, x) => {
-                    let i = 0;
-                    for (let j = 1; j <= nrd; ++j) {
-                        // careful: customers describe components 0-based. We record indices 1-based.
+                    let i = -1;
+                    for (let j = 0; j < nrd; ++j) {
+                        // careful: customers describe components 0-based. We record indices 1-based, in a 0-based array.
                         if (icom[j] === c + 1)
-                            i = j;
+                            i = j + 1;
                     }
-                    if (i === 0)
+                    if (i === -1)
                         throw new Error('no dense output available for component ' + c);
                     const theta = (x - xOld) / h;
                     const theta1 = 1 - theta;
@@ -542,7 +542,7 @@ class Solver {
             }
             // Initial preparations
             const posneg = xEnd - x >= 0 ? 1 : -1;
-            let k = Math.max(2, Math.min(this.maxExtrapolationColumns - 1, Math.floor(-Solver.log10(rTol[0] + 1e-40) * 0.6 + 1.5)));
+            let k = Math.max(2, Math.min(this.maxExtrapolationColumns - 1, Math.floor(-Math.log10(rTol[0] + 1e-40) * 0.6 + 1.5)));
             let h = Math.max(Math.abs(this.initialStepSize), 1e-4);
             h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2);
             const iPoint = Solver.dim(this.maxExtrapolationColumns + 1);
@@ -717,5 +717,4 @@ class Solver {
 exports.Solver = Solver;
 // return a 1-based array of length n. Initial values undefined.
 Solver.dim = (n) => Array(n + 1);
-Solver.log10 = (x) => Math.log(x) / Math.LN10;
 //# sourceMappingURL=odex.js.map
