@@ -163,14 +163,14 @@ class Solver {
                     // convert dense components requested into one-based indexing.
                     if (c < 0 || c > this.n)
                         throw new Error('bad dense component: ' + c);
-                    icom.push(c + 1);
+                    icom.push(c);
                     ++nrdens;
                 }
             }
             else {
                 // if user asked for dense output but did not specify any denseComponents,
                 // request all of them.
-                for (let i = 1; i <= this.n; ++i) {
+                for (let i = 0; i < this.n; ++i) {
                     icom.push(i);
                 }
                 nrdens = this.n;
@@ -198,13 +198,13 @@ class Solver {
                 const kmit = 2 * kc - this.interpolationFormulaDegree + 1;
                 if (this.denseOutput) {
                     // kmit = mu of the paper
-                    for (let i = 1; i <= nrd; ++i)
-                        dens[i] = y[icom[i - 1] - 1];
-                    for (let i = 1; i <= nrd; ++i)
-                        dens[nrd + i] = h * dz[icom[i - 1] - 1];
+                    for (let i = 0; i < nrd; ++i)
+                        dens[i + 1] = y[icom[i]];
+                    for (let i = 0; i < nrd; ++i)
+                        dens[nrd + i + 1] = h * dz[icom[i]];
                     let kln = 2 * nrd;
-                    for (let i = 1; i <= nrd; ++i)
-                        dens[kln + i] = t[1][icom[i - 1]];
+                    for (let i = 0; i < nrd; ++i)
+                        dens[kln + i + 1] = t[1][icom[i] + 1];
                     // compute solution at mid-point
                     for (let j = 2; j <= kc; ++j) {
                         let dblenj = nj[j];
@@ -223,8 +223,8 @@ class Solver {
                         yh1[i - 1] = t[1][i];
                     this.copy(yh2, f(x, yh1));
                     krn = 3 * nrd;
-                    for (let i = 1; i <= nrd; ++i)
-                        dens[krn + i] = yh2[icom[i - 1] - 1] * h;
+                    for (let i = 0; i < nrd; ++i)
+                        dens[krn + i + 1] = yh2[icom[i]] * h;
                     // THE LOOP
                     for (let kmi = 1; kmi <= kmit; ++kmi) {
                         // compute kmi-th derivative at mid-point
@@ -264,8 +264,8 @@ class Solver {
                             }
                             if (kmi === 1 && nSeq === 4) {
                                 l = lend - 2;
-                                for (let i = 1; i <= nrd; ++i)
-                                    fSafe[l][i] -= dz[icom[i - 1] - 1];
+                                for (let i = 0; i < nrd; ++i)
+                                    fSafe[l][i + 1] -= dz[icom[i]];
                             }
                         }
                         // compute differences
@@ -283,8 +283,8 @@ class Solver {
                     // estimation of interpolation error
                     if (this.denseOutputErrorEstimator && kmit >= 1) {
                         let errint = 0;
-                        for (let i = 1; i <= nrd; ++i)
-                            errint += Math.pow((dens[(kmit + 4) * nrd + i] / scal[icom[i - 1] - 1]), 2);
+                        for (let i = 0; i < nrd; ++i)
+                            errint += Math.pow((dens[(kmit + 4) * nrd + i + 1] / scal[icom[i]]), 2);
                         errint = Math.sqrt(errint / nrd) * errfac[kmit];
                         hoptde = h / Math.max(Math.pow(errint, (1 / (kmit + 4))), 0.01);
                         if (errint > 10) {
@@ -303,7 +303,7 @@ class Solver {
                 ++nAccept;
                 if (solOut) {
                     // If denseOutput, we also want to supply the dense closure.
-                    if (solOut(nAccept + 1, xOld, x, y, this.denseOutput && contex(xOld, h, kmit, dens, icom)) === false)
+                    if (solOut(nAccept + 1, xOld, x, y, this.denseOutput && contex(xOld, h, kmit, dens)) === false)
                         return false;
                 }
                 // compute optimal order
@@ -367,15 +367,15 @@ class Solver {
                 const njMid = (nj[j] / 2) | 0;
                 for (let mm = 1; mm <= m; ++mm) {
                     if (this.denseOutput && mm === njMid) {
-                        for (let i = 1; i <= nrd; ++i) {
-                            ySafe[j][i] = yh2[icom[i - 1] - 1];
+                        for (let i = 0; i < nrd; ++i) {
+                            ySafe[j][i + 1] = yh2[icom[i]];
                         }
                     }
                     this.copy(dy, f(x + hj * mm, yh2));
                     if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
                         ++iPt;
-                        for (let i = 1; i <= nrd; ++i) {
-                            fSafe[iPt][i] = dy[icom[i - 1] - 1];
+                        for (let i = 0; i < nrd; ++i) {
+                            fSafe[iPt][i + 1] = dy[icom[i]];
                         }
                     }
                     for (let i = 0; i < this.n; ++i) {
@@ -407,8 +407,8 @@ class Solver {
                 this.copy(dy, f(x + h, yh2));
                 if (this.denseOutput && njMid <= 2 * j - 1) {
                     ++iPt;
-                    for (let i = 1; i <= nrd; ++i) {
-                        fSafe[iPt][i] = dy[icom[i - 1] - 1];
+                    for (let i = 0; i < nrd; ++i) {
+                        fSafe[iPt][i + 1] = dy[icom[i]];
                     }
                 }
                 for (let i = 0; i < this.n; ++i) {
@@ -500,12 +500,11 @@ class Solver {
                         y[n * (im + 4) + i] = a[im];
                 }
             };
-            const contex = (xOld, h, imit, y, icom) => {
+            const contex = (xOld, h, imit, y) => {
                 return (c, x) => {
                     let i = -1;
                     for (let j = 0; j < nrd; ++j) {
-                        // careful: customers describe components 0-based. We record indices 1-based, in a 0-based array.
-                        if (icom[j] === c + 1)
+                        if (icom[j] === c)
                             i = j + 1;
                     }
                     if (i === -1)
