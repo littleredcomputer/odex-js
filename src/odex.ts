@@ -213,8 +213,6 @@ export class Solver {
     let [nEval, nStep, nAccept, nReject] = [0, 0, 0, 0]
 
     // call to core integrator
-    const ncom = Math.max(1, (2 * this.maxExtrapolationColumns + 5) * this.denseComponents.length)
-    const dens = Solver.dim(ncom)
     const fSafe = Solver.dim2(lfSafe, this.denseComponents.length)
 
     let odxcor = (): Outcome => {
@@ -223,6 +221,8 @@ export class Solver {
         // Returns true if we should continue the integration. The only time false
         // is returned is when the user's solution observation function has returned false,
         // indicating that she does not wish to continue the computation.
+        const ncom = Math.max(1, (2 * this.maxExtrapolationColumns + 5) * this.denseComponents.length)
+        const dens = Solver.dim(ncom)
         xOld = x
         x += h
         const kmit = 2 * kc - this.interpolationFormulaDegree + 1
@@ -239,12 +239,12 @@ export class Solver {
             for (let l = j; l >= 2; --l) {
               let factor = (dblenj / nj[l - 1]) ** 2 - 1
               for (let i = 1; i <= nrd; ++i) {
-                ySafe[l - 1][i] = ySafe[l][i] + (ySafe[l][i] - ySafe[l - 1][i]) / factor
+                ySafe[l - 2][i] = ySafe[l - 1][i] + (ySafe[l - 1][i] - ySafe[l - 2][i]) / factor
               }
             }
           }
           let krn = 4 * nrd
-          for (let i = 1; i <= nrd; ++i) dens[krn + i] = ySafe[1][i]
+          for (let i = 1; i <= nrd; ++i) dens[krn + i] = ySafe[0][i]
           // compute first derivative at right end
           for (let i = 1; i <= this.n; ++i) yh1[i-1] = t[1][i]
           this.copy(yh2, f(x, yh1))
@@ -258,7 +258,7 @@ export class Solver {
               let facnj = (nj[kk] / 2) ** (kmi - 1)
               iPt = iPoint[kk + 1] - 2 * kk + kmi
               for (let i = 1; i <= nrd; ++i) {
-                ySafe[kk][i] = fSafe[iPt][i] * facnj
+                ySafe[kk-1][i] = fSafe[iPt][i] * facnj
               }
             }
             for (let j = kbeg + 1; j <= kc; ++j) {
@@ -266,12 +266,12 @@ export class Solver {
               for (let l = j; l >= kbeg + 1; --l) {
                 let factor = (dblenj / nj[l - 1]) ** 2 - 1
                 for (let i = 1; i <= nrd; ++i) {
-                  ySafe[l - 1][i] = ySafe[l][i] + (ySafe[l][i] - ySafe[l - 1][i]) / factor
+                  ySafe[l - 2][i] = ySafe[l - 1][i] + (ySafe[l - 1][i] - ySafe[l - 2][i]) / factor
                 }
               }
             }
             krn = (kmi + 4) * nrd
-            for (let i = 1; i <= nrd; ++i) dens[krn + i] = ySafe[kbeg][i] * h
+            for (let i = 1; i <= nrd; ++i) dens[krn + i] = ySafe[kbeg-1][i] * h
             if (kmi === kmit) continue
             // compute differences
             for (let kk = (kmi + 2) / 2 | 0; kk <= kc; ++kk) {
@@ -378,7 +378,7 @@ export class Solver {
         for (let mm = 1; mm <= m; ++mm) {
           if (this.denseOutput && mm === njMid) {
             for (let i = 0; i < this.denseComponents.length; ++i) {
-              ySafe[j][i+1] = yh2[this.denseComponents[i]]
+              ySafe[j-1][i+1] = yh2[this.denseComponents[i]]
             }
           }
           this.copy(dy, f(x + hj * mm, yh2))
@@ -516,12 +516,10 @@ export class Solver {
                       imit: number,
                       y: number[]) => {
         return (c: number, x: number) => {
-          let i = -1
           const nrd = this.denseComponents.length
-          for (let j = 0; j < nrd; ++j) {
-            if (this.denseComponents[j] === c) i = j + 1
-          }
-          if (i === -1) throw new Error('no dense output available for component ' + c)
+          let i = this.denseComponents.indexOf(c)
+          if (i < 0) throw new Error('no dense output available for component ' + c)
+          ++i; // component numbers are zero-based, but one-based in the corresponding state arrays
           const theta = (x - xOld) / h
           const theta1 = 1 - theta
           const phthet = y[i] + theta * (y[nrd + i] + theta1 * (y[2 * nrd + i] * theta + y[3 * nrd + i] * theta1))
@@ -536,7 +534,8 @@ export class Solver {
       }
 
       // preparation
-      const ySafe = Solver.dim2(this.maxExtrapolationColumns, this.denseComponents.length)
+      const ySafe = Array(this.maxExtrapolationColumns)
+      for (let i = 0; i < ySafe.length; ++i) ySafe[i] = Array(this.denseComponents.length + 1)
       const hh = Array(this.maxExtrapolationColumns)
       const t = Solver.dim2(this.maxExtrapolationColumns, this.n)
       // Define the step size sequence

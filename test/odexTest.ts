@@ -84,10 +84,21 @@ describe('Odex', () => {
     it('worked for y', () => assert(Math.abs(y1 - Math.sin(1)) < 1e-5))
     it(`worked for y'`, () => assert(Math.abs(y1p - Math.cos(1)) < 1e-5))
 
+    // test for correct operation in the negative x direction
+    let b = s.solve(trig, 0, y0, -1)
+    it('converged (backwards)', () => assert.equal(b.outcome, Outcome.Converged))
+    it('worked for y (backwards)', () => assert(Math.abs(b.y[0] - Math.sin(-1)) < 1e-5))
+    it(`worked for y' (backwards)`, () => assert(Math.abs(b.y[1] - Math.cos(-1)) < 1e-5))
+
     let c = s.solve(trig, 0, y0, 10)
     it('converged: long range', () => assert.equal(c.outcome, Outcome.Converged))
     it('worked for y', () => assert(Math.abs(c.y[0] - Math.sin(10)) < 1e-4))
     it(`worked for y'`, () => assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4))
+
+    let cb = s.solve(trig, 0, y0, -10)
+    it('converged: long range (backwards)', () => assert.equal(cb.outcome, Outcome.Converged))
+    it('worked for y (backwards)', () => assert(Math.abs(cb.y[0] - Math.sin(-10)) < 1e-4))
+    it(`worked for y' (backwards)`, () => assert(Math.abs(cb.y[1] - Math.cos(-10)) < 1e-4))
   })
   describe('Airy equation y" = xy', () => {
     let s = NewSolver(2)
