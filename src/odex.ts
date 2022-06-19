@@ -232,7 +232,7 @@ export class Solver {
           for (let i = 0; i < nrd; ++i) dens[i] = y[this.denseComponents[i]]
           for (let i = 0; i < nrd; ++i) dens[nrd + i] = h * dz[this.denseComponents[i]]
           let kln = 2 * nrd
-          for (let i = 0; i < nrd; ++i) dens[kln + i] = t[1][this.denseComponents[i]+1]
+          for (let i = 0; i < nrd; ++i) dens[kln + i] = t[1][this.denseComponents[i]]
           // compute solution at mid-point
           for (let j = 2; j <= kc; ++j) {
             let dblenj = nj[j]
@@ -246,7 +246,7 @@ export class Solver {
           let krn = 4 * nrd
           for (let i = 0; i < nrd; ++i) dens[krn + i] = ySafe[0][i]
           // compute first derivative at right end
-          for (let i = 1; i <= this.n; ++i) yh1[i-1] = t[1][i]
+          for (let i = 0; i < this.n; ++i) yh1[i] = t[1][i]
           this.copy(yh2, f(x, yh1))
           krn = 3 * nrd
           for (let i = 0; i < nrd; ++i) dens[krn + i] = yh2[this.denseComponents[i]] * h
@@ -317,7 +317,7 @@ export class Solver {
           }
           for (let i = 1; i <= this.n; ++i) dz[i-1] = yh2[i-1]
         }
-        for (let i = 0; i < this.n; ++i) y[i] = t[1][i+1]
+        for (let i = 0; i < this.n; ++i) y[i] = t[1][i]
         ++nAccept
         if (solOut) {
           // If denseOutput, we also want to supply the dense closure.
@@ -422,7 +422,7 @@ export class Solver {
           }
         }
         for (let i = 0; i < this.n; ++i) {
-          t[j][i+1] = (yh1[i] + yh2[i] + hj * dy[i]) / 2
+          t[j][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2
         }
         nEval += nj[j]
         // polynomial extrapolation
@@ -431,16 +431,16 @@ export class Solver {
         let fac: number
         for (let l = j; l > 1; --l) {
           fac = (dblenj / nj[l - 1]) ** 2 - 1
-          for (let i = 1; i <= this.n; ++i) {
+          for (let i = 0; i < this.n; ++i) {
             t[l - 1][i] = t[l][i] + (t[l][i] - t[l - 1][i]) / fac
           }
         }
         err = 0
         // scaling
         for (let i = 0; i < this.n; ++i) {
-          let t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i+1]))
+          let t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i]))
           scal[i] = aTol[i] + rTol[i] * t1i
-          err += ((t[1][i+1] - t[2][i+1]) / scal[i]) ** 2
+          err += ((t[1][i] - t[2][i]) / scal[i]) ** 2
         }
         err = Math.sqrt(err / this.n)
         if (err * this.uRound >= 1 || (j > 2 && err >= errOld)) {
@@ -536,7 +536,8 @@ export class Solver {
       const ySafe = Array(this.maxExtrapolationColumns)
       for (let i = 0; i < ySafe.length; ++i) ySafe[i] = Array(this.denseComponents.length)
       const hh = Array(this.maxExtrapolationColumns)
-      const t = Solver.dim2(this.maxExtrapolationColumns, this.n)
+      const t = Array(this.maxExtrapolationColumns + 1)
+      for (let i = 0; i < t.length; ++i) t[i] = Array(this.n)
       // Define the step size sequence
       const nj = Solver.stepSizeSequence(nSeq, this.maxExtrapolationColumns)
       // Define the a[i] for order selection
