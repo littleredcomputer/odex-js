@@ -182,8 +182,8 @@ class Solver {
                 // Returns true if we should continue the integration. The only time false
                 // is returned is when the user's solution observation function has returned false,
                 // indicating that she does not wish to continue the computation.
-                const ncom = Math.max(1, (2 * this.maxExtrapolationColumns + 5) * this.denseComponents.length);
-                const dens = Solver.dim(ncom);
+                const ncom = (2 * this.maxExtrapolationColumns + 5) + this.denseComponents.length;
+                const dens = Array(ncom);
                 xOld = x;
                 x += h;
                 const kmit = 2 * kc - this.interpolationFormulaDegree + 1;
@@ -191,12 +191,12 @@ class Solver {
                     const nrd = this.denseComponents.length;
                     // kmit = mu of the paper
                     for (let i = 0; i < nrd; ++i)
-                        dens[i + 1] = y[this.denseComponents[i]];
+                        dens[i] = y[this.denseComponents[i]];
                     for (let i = 0; i < nrd; ++i)
-                        dens[nrd + i + 1] = h * dz[this.denseComponents[i]];
+                        dens[nrd + i] = h * dz[this.denseComponents[i]];
                     let kln = 2 * nrd;
                     for (let i = 0; i < nrd; ++i)
-                        dens[kln + i + 1] = t[1][this.denseComponents[i] + 1];
+                        dens[kln + i] = t[1][this.denseComponents[i] + 1];
                     // compute solution at mid-point
                     for (let j = 2; j <= kc; ++j) {
                         let dblenj = nj[j];
@@ -209,14 +209,14 @@ class Solver {
                     }
                     let krn = 4 * nrd;
                     for (let i = 0; i < nrd; ++i)
-                        dens[krn + i + 1] = ySafe[0][i];
+                        dens[krn + i] = ySafe[0][i];
                     // compute first derivative at right end
                     for (let i = 1; i <= this.n; ++i)
                         yh1[i - 1] = t[1][i];
                     this.copy(yh2, f(x, yh1));
                     krn = 3 * nrd;
                     for (let i = 0; i < nrd; ++i)
-                        dens[krn + i + 1] = yh2[this.denseComponents[i]] * h;
+                        dens[krn + i] = yh2[this.denseComponents[i]] * h;
                     // THE LOOP
                     for (let kmi = 1; kmi <= kmit; ++kmi) {
                         // compute kmi-th derivative at mid-point
@@ -239,7 +239,7 @@ class Solver {
                         }
                         krn = (kmi + 4) * nrd;
                         for (let i = 0; i < nrd; ++i)
-                            dens[krn + i + 1] = ySafe[kbeg - 1][i] * h;
+                            dens[krn + i] = ySafe[kbeg - 1][i] * h;
                         if (kmi === kmit)
                             continue;
                         // compute differences
@@ -276,7 +276,7 @@ class Solver {
                     if (this.denseOutputErrorEstimator && kmit >= 1) {
                         let errint = 0;
                         for (let i = 0; i < nrd; ++i)
-                            errint += Math.pow((dens[(kmit + 4) * nrd + i + 1] / scal[this.denseComponents[i]]), 2);
+                            errint += Math.pow((dens[(kmit + 4) * nrd + i] / scal[this.denseComponents[i]]), 2);
                         errint = Math.sqrt(errint / nrd) * errfac[kmit];
                         hoptde = h / Math.max(Math.pow(errint, (1 / (kmit + 4))), 0.01);
                         if (errint > 10) {
@@ -446,7 +446,7 @@ class Solver {
                 const n = this.denseComponents.length;
                 let a = new Array(31); // zero-based: 0:30
                 // begin with Hermite interpolation
-                for (let i = 1; i <= this.denseComponents.length; ++i) {
+                for (let i = 0; i < this.denseComponents.length; ++i) {
                     let y0 = y[i];
                     let y1 = y[2 * n + i];
                     let yp0 = y[n + i];
@@ -499,7 +499,6 @@ class Solver {
                     let i = this.denseComponents.indexOf(c);
                     if (i < 0)
                         throw new Error('no dense output available for component ' + c);
-                    ++i; // component numbers are zero-based, but one-based in the corresponding state arrays
                     const theta = (x - xOld) / h;
                     const theta1 = 1 - theta;
                     const phthet = y[i] + theta * (y[nrd + i] + theta1 * (y[2 * nrd + i] * theta + y[3 * nrd + i] * theta1));
