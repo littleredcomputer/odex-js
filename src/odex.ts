@@ -238,13 +238,13 @@ export class Solver {
             let dblenj = nj[j]
             for (let l = j; l >= 2; --l) {
               let factor = (dblenj / nj[l - 1]) ** 2 - 1
-              for (let i = 1; i <= nrd; ++i) {
+              for (let i = 0; i < nrd; ++i) {
                 ySafe[l - 2][i] = ySafe[l - 1][i] + (ySafe[l - 1][i] - ySafe[l - 2][i]) / factor
               }
             }
           }
           let krn = 4 * nrd
-          for (let i = 1; i <= nrd; ++i) dens[krn + i] = ySafe[0][i]
+          for (let i = 0; i < nrd; ++i) dens[krn + i + 1] = ySafe[0][i]
           // compute first derivative at right end
           for (let i = 1; i <= this.n; ++i) yh1[i-1] = t[1][i]
           this.copy(yh2, f(x, yh1))
@@ -257,21 +257,21 @@ export class Solver {
             for (let kk = kbeg; kk <= kc; ++kk) {
               let facnj = (nj[kk] / 2) ** (kmi - 1)
               iPt = iPoint[kk + 1] - 2 * kk + kmi
-              for (let i = 1; i <= nrd; ++i) {
-                ySafe[kk-1][i] = fSafe[iPt][i] * facnj
+              for (let i = 0; i < nrd; ++i) {
+                ySafe[kk-1][i] = fSafe[iPt][i+1] * facnj
               }
             }
             for (let j = kbeg + 1; j <= kc; ++j) {
               let dblenj = nj[j]
               for (let l = j; l >= kbeg + 1; --l) {
                 let factor = (dblenj / nj[l - 1]) ** 2 - 1
-                for (let i = 1; i <= nrd; ++i) {
+                for (let i = 0; i < nrd; ++i) {
                   ySafe[l - 2][i] = ySafe[l - 1][i] + (ySafe[l - 1][i] - ySafe[l - 2][i]) / factor
                 }
               }
             }
             krn = (kmi + 4) * nrd
-            for (let i = 1; i <= nrd; ++i) dens[krn + i] = ySafe[kbeg-1][i] * h
+            for (let i = 0; i < nrd; ++i) dens[krn + i + 1] = ySafe[kbeg-1][i] * h
             if (kmi === kmit) continue
             // compute differences
             for (let kk = (kmi + 2) / 2 | 0; kk <= kc; ++kk) {
@@ -378,7 +378,7 @@ export class Solver {
         for (let mm = 1; mm <= m; ++mm) {
           if (this.denseOutput && mm === njMid) {
             for (let i = 0; i < this.denseComponents.length; ++i) {
-              ySafe[j-1][i+1] = yh2[this.denseComponents[i]]
+              ySafe[j-1][i] = yh2[this.denseComponents[i]]
             }
           }
           this.copy(dy, f(x + hj * mm, yh2))
@@ -535,7 +535,7 @@ export class Solver {
 
       // preparation
       const ySafe = Array(this.maxExtrapolationColumns)
-      for (let i = 0; i < ySafe.length; ++i) ySafe[i] = Array(this.denseComponents.length + 1)
+      for (let i = 0; i < ySafe.length; ++i) ySafe[i] = Array(this.denseComponents.length)
       const hh = Array(this.maxExtrapolationColumns)
       const t = Solver.dim2(this.maxExtrapolationColumns, this.n)
       // Define the step size sequence
