@@ -196,7 +196,7 @@ class Solver {
                         dens[nrd + i] = h * dz[this.denseComponents[i]];
                     let kln = 2 * nrd;
                     for (let i = 0; i < nrd; ++i)
-                        dens[kln + i] = t[1][this.denseComponents[i]];
+                        dens[kln + i] = t[0][this.denseComponents[i]];
                     // compute solution at mid-point
                     for (let j = 2; j <= kc; ++j) {
                         let dblenj = nj[j];
@@ -212,7 +212,7 @@ class Solver {
                         dens[krn + i] = ySafe[0][i];
                     // compute first derivative at right end
                     for (let i = 0; i < this.n; ++i)
-                        yh1[i] = t[1][i];
+                        yh1[i] = t[0][i];
                     this.copy(yh2, f(x, yh1));
                     krn = 3 * nrd;
                     for (let i = 0; i < nrd; ++i)
@@ -291,7 +291,7 @@ class Solver {
                         dz[i - 1] = yh2[i - 1];
                 }
                 for (let i = 0; i < this.n; ++i)
-                    y[i] = t[1][i];
+                    y[i] = t[0][i];
                 ++nAccept;
                 if (solOut) {
                     // If denseOutput, we also want to supply the dense closure.
@@ -404,7 +404,7 @@ class Solver {
                     }
                 }
                 for (let i = 0; i < this.n; ++i) {
-                    t[j][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2;
+                    t[j - 1][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2;
                 }
                 nEval += nj[j];
                 // polynomial extrapolation
@@ -415,15 +415,15 @@ class Solver {
                 for (let l = j; l > 1; --l) {
                     fac = Math.pow((dblenj / nj[l - 1]), 2) - 1;
                     for (let i = 0; i < this.n; ++i) {
-                        t[l - 1][i] = t[l][i] + (t[l][i] - t[l - 1][i]) / fac;
+                        t[l - 2][i] = t[l - 1][i] + (t[l - 1][i] - t[l - 2][i]) / fac;
                     }
                 }
                 err = 0;
                 // scaling
                 for (let i = 0; i < this.n; ++i) {
-                    let t1i = Math.max(Math.abs(y[i]), Math.abs(t[1][i]));
-                    scal[i] = aTol[i] + rTol[i] * t1i;
-                    err += Math.pow(((t[1][i] - t[2][i]) / scal[i]), 2);
+                    let t0i = Math.max(Math.abs(y[i]), Math.abs(t[0][i]));
+                    scal[i] = aTol[i] + rTol[i] * t0i;
+                    err += Math.pow(((t[0][i] - t[1][i]) / scal[i]), 2);
                 }
                 err = Math.sqrt(err / this.n);
                 if (err * this.uRound >= 1 || (j > 2 && err >= errOld)) {
@@ -447,23 +447,23 @@ class Solver {
                 let a = new Array(31); // zero-based: 0:30
                 // begin with Hermite interpolation
                 for (let i = 0; i < this.denseComponents.length; ++i) {
-                    let y0 = y[i];
-                    let y1 = y[2 * n + i];
-                    let yp0 = y[n + i];
-                    let yp1 = y[3 * n + i];
-                    let yDiff = y1 - y0;
-                    let aspl = -yp1 + yDiff;
-                    let bspl = yp0 - yDiff;
+                    const y0 = y[i];
+                    const y1 = y[2 * n + i];
+                    const yp0 = y[n + i];
+                    const yp1 = y[3 * n + i];
+                    const yDiff = y1 - y0;
+                    const aspl = -yp1 + yDiff;
+                    const bspl = yp0 - yDiff;
                     y[n + i] = yDiff;
                     y[2 * n + i] = aspl;
                     y[3 * n + i] = bspl;
                     if (imit < 0)
                         continue;
                     // compute the derivatives of Hermite at midpoint
-                    let ph0 = (y0 + y1) * 0.5 + 0.125 * (aspl + bspl);
-                    let ph1 = yDiff + (aspl - bspl) * 0.25;
-                    let ph2 = -(yp0 - yp1);
-                    let ph3 = 6 * (bspl - aspl);
+                    const ph0 = (y0 + y1) * 0.5 + 0.125 * (aspl + bspl);
+                    const ph1 = yDiff + (aspl - bspl) * 0.25;
+                    const ph2 = -(yp0 - yp1);
+                    const ph3 = 6 * (bspl - aspl);
                     // compute the further coefficients
                     if (imit >= 1) {
                         a[1] = 16 * (y[5 * n + i] - ph1);
@@ -517,7 +517,7 @@ class Solver {
             for (let i = 0; i < ySafe.length; ++i)
                 ySafe[i] = Array(this.denseComponents.length);
             const hh = Array(this.maxExtrapolationColumns);
-            const t = Array(this.maxExtrapolationColumns + 1);
+            const t = Array(this.maxExtrapolationColumns);
             for (let i = 0; i < t.length; ++i)
                 t[i] = Array(this.n);
             // Define the step size sequence
