@@ -62,10 +62,12 @@ class Solver {
                 components.push(i);
         }
         let t;
-        return (n, xOld, x, y, interpolate) => {
-            if (n === 1) {
+        let first = true;
+        return (xOld, x, y, interpolate) => {
+            if (first) {
                 let v = out(x, y);
                 t = x + dt;
+                first = false;
                 return v;
             }
             while (t <= x) {
@@ -168,9 +170,9 @@ class Solver {
         const rTol = this.expandToArray(this.relativeTolerance);
         let [nEval, nStep, nAccept, nReject] = [0, 0, 0, 0];
         // call to core integrator
-        const fSafe = Array(lfSafe + 1); // TODO: make 0-based
-        for (let i = 1; i < fSafe.length; ++i)
-            fSafe[i] = Array(this.denseComponents.length); // TODO: change loop index to 0 as above
+        const fSafe = Array(lfSafe);
+        for (let i = 0; i < fSafe.length; ++i)
+            fSafe[i] = Array(this.denseComponents.length);
         let odxcor = () => {
             let acceptStep = () => {
                 // Returns true if we should continue the integration. The only time false
@@ -219,7 +221,7 @@ class Solver {
                             let facnj = Math.pow((nj[kk - 1] / 2), (kmi - 1));
                             iPt = iPoint[kk + 1] - 2 * kk + kmi;
                             for (let i = 0; i < nrd; ++i) {
-                                ySafe[kk - 1][i] = fSafe[iPt][i] * facnj;
+                                ySafe[kk - 1][i] = fSafe[iPt - 1][i] * facnj; // TODO warning: if we change definition of iPoint, need to fix this
                             }
                         }
                         for (let j = kbeg + 1; j <= kc; ++j) {
@@ -245,13 +247,13 @@ class Solver {
                             let l;
                             for (l = lbeg; l >= lend; l -= 2) {
                                 for (let i = 0; i < nrd; ++i) {
-                                    fSafe[l][i] -= fSafe[l - 2][i];
+                                    fSafe[l - 1][i] -= fSafe[l - 3][i];
                                 }
                             }
                             if (kmi === 1 && nSeq === 4) {
                                 l = lend - 2;
                                 for (let i = 0; i < nrd; ++i)
-                                    fSafe[l][i] -= dz[this.denseComponents[i]];
+                                    fSafe[l - 1][i] -= dz[this.denseComponents[i]];
                             }
                         }
                         // compute differences
@@ -260,7 +262,7 @@ class Solver {
                             let lend = iPoint[kk] + kmi + 2;
                             for (let l = lbeg; l >= lend; l -= 2) {
                                 for (let i = 0; i < nrd; ++i) {
-                                    fSafe[l][i] -= fSafe[l - 2][i];
+                                    fSafe[l - 1][i] -= fSafe[l - 3][i];
                                 }
                             }
                         }
@@ -289,7 +291,7 @@ class Solver {
                 ++nAccept;
                 if (solOut) {
                     // If denseOutput, we also want to supply the dense closure.
-                    if (solOut(nAccept + 1, xOld, x, y, this.denseOutput && contex(xOld, h, kmit, dens)) === false)
+                    if (solOut(xOld, x, y, this.denseOutput && contex(xOld, h, kmit, dens)) === false)
                         return false;
                 }
                 // compute optimal order
@@ -362,7 +364,7 @@ class Solver {
                     if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
                         ++iPt;
                         for (let i = 0; i < this.denseComponents.length; ++i) {
-                            fSafe[iPt][i] = dy[this.denseComponents[i]];
+                            fSafe[iPt - 1][i] = dy[this.denseComponents[i]];
                         }
                     }
                     for (let i = 0; i < this.n; ++i) {
@@ -395,7 +397,7 @@ class Solver {
                 if (this.denseOutput && njMid <= 2 * j - 1) {
                     ++iPt;
                     for (let i = 0; i < this.denseComponents.length; ++i) {
-                        fSafe[iPt][i] = dy[this.denseComponents[i]];
+                        fSafe[iPt - 1][i] = dy[this.denseComponents[i]];
                     }
                 }
                 for (let i = 0; i < this.n; ++i) {
@@ -556,7 +558,7 @@ class Solver {
                     iPt = 0;
                 }
                 // check return value and abandon integration if called for
-                if (false === solOut(nAccept + 1, xOld, x, y)) {
+                if (false === solOut(xOld, x, y)) {
                     return Outcome.EarlyReturn;
                 }
             }

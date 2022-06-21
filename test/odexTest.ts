@@ -161,17 +161,17 @@ describe('Odex', () => {
   })
   describe('cosine (observer)', () => {
     let s = NewSolver(2)
-    let o = s.solve(trig, 0, [1, 0], 2 * Math.PI, (n, xOld, x, y) => {
+    let o = s.solve(trig, 0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
       const value = y[0]
-      it('is accurate at grid point ' + n, () => assert(Math.abs(value - Math.cos(x)) < 1e-4))
+      it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.cos(x)) < 1e-4))
     })
     it('converged', () => assert(o.outcome === Outcome.Converged))
   })
   describe('sine (observer)', () => {
     let s = NewSolver(2)
-    let o = s.solve(trig, 0, [0, 1], 2 * Math.PI, (n, xOld, x, y) => {
+    let o = s.solve(trig, 0, [0, 1], 2 * Math.PI, (xOld, x, y) => {
       const value = y[0]
-      it('is accurate at grid point ' + n, () => assert(Math.abs(value - Math.sin(x)) < 1e-5))
+      it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.sin(x)) < 1e-5))
     })
     it('converged', () => assert(o.outcome === Outcome.Converged))
   })
@@ -200,12 +200,11 @@ describe('Odex', () => {
     s.denseOutput = true
     const grid = 0.1
     let current = 0.0
-    let o = s.solve(trig, 0, [1, 0], Math.PI / 2, (n, xOld, x, y, f) => {
+    let o = s.solve(trig, 0, [1, 0], Math.PI / 2, (xOld, x, y, f) => {
       while (current >= xOld && current < x) {
         let k = current
         let v = f(0, current)
         let vp = f(1, current)
-        // console.log('eval', xOld, x, current, v, Math.abs(v-Math.cos(current)))
         it('is accurate at interpolated grid point',
           () => assert(Math.abs(v - Math.cos(k)) < 1e-5))
         it('derivative is accurate at interpolated grid point',
@@ -221,9 +220,9 @@ describe('Odex', () => {
   describe('cosine (observer, long range)', () => {
     let s = NewSolver(2)
     s.denseOutput = false
-    let o = s.solve(trig, 0, [1, 0], 16 * Math.PI, (n, xOld, x, y) => {
+    let o = s.solve(trig, 0, [1, 0], 16 * Math.PI, (xOld, x, y) => {
       const value = y[0]
-      it('is accurate at grid point ' + n, () => assert(Math.abs(value - Math.cos(x)) < 2e-4))
+      it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.cos(x)) < 2e-4))
     })
     it('converged', () => assert(o.outcome === Outcome.Converged))
     it('evaluated f the correct number of times', () => assert(o.nEval === 920))
@@ -289,7 +288,7 @@ describe('Odex', () => {
     s.denseOutput = true
     let component = (k: number) => {
       let diff = 1e10
-      s.solve(trig, 0, [1, 0], 1, (n, xOld, x, y, f) => {
+      s.solve(trig, 0, [1, 0], 1, (xOld, x, y, f) => {
         if (x > 0) {
           let xh = (x - xOld) / 2
           diff = Math.abs(f(k, xh) + Math.sin(xh))
