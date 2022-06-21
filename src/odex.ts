@@ -351,9 +351,9 @@ export class Solver {
           h = hh[kopt-1]
         } else {
           if (kc < k && w[kc] < w[kc - 1] * this.stepSizeFac4) {
-            h = hh[kc-1] * a[kopt + 1] / a[kc]
+            h = hh[kc-1] * a[kopt] / a[kc-1]
           } else {
-            h = hh[kc-1] * a[kopt] / a[kc]
+            h = hh[kc-1] * a[kopt-1] / a[kc-1]
           }
         }
         // compute stepsize for next step
@@ -457,7 +457,7 @@ export class Solver {
           Math.max(facMin, (err / this.stepSafetyFactor1) ** exp0 / this.stepSafetyFactor2))
         fac = 1 / fac
         hh[j-1] = Math.min(Math.abs(h) * fac, hMax)
-        w[j] = a[j] / hh[j-1]
+        w[j] = a[j-1] / hh[j-1]
       }
 
       const interp = (y: number[], imit: number) => {
@@ -541,10 +541,10 @@ export class Solver {
       // Define the step size sequence
       const nj = Solver.stepSizeSequence(nSeq, this.maxExtrapolationColumns)
       // Define the a[i] for order selection
-      const a = Solver.dim(this.maxExtrapolationColumns)
-      a[1] = 1 + nj[1]
-      for (let i = 2; i <= this.maxExtrapolationColumns; ++i) {
-        a[i] = a[i - 1] + nj[i]
+      const a = Array(this.maxExtrapolationColumns)
+      a[0] = 1 + nj[1]
+      for (let i = 1; i < this.maxExtrapolationColumns; ++i) {
+        a[i] = a[i - 1] + nj[i + 1]
       }
       // Initial Scaling
       const scal = Array(this.n)
