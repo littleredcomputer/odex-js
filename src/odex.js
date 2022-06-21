@@ -105,32 +105,31 @@ class Solver {
     }
     // Generate step size sequence and return as a 1-based array of length n.
     static stepSizeSequence(nSeq, n) {
-        const a = new Array(n + 1);
-        a[0] = 0;
+        const a = Array(n);
         switch (nSeq) {
             case 1:
-                for (let i = 1; i <= n; ++i)
-                    a[i] = 2 * i;
+                for (let i = 0; i < n; ++i)
+                    a[i] = 2 * (i + 1);
                 break;
             case 2:
-                a[1] = 2;
-                for (let i = 2; i <= n; ++i)
-                    a[i] = 4 * i - 4;
+                a[0] = 2;
+                for (let i = 1; i < n; ++i)
+                    a[i] = 4 * i;
                 break;
             case 3:
-                a[1] = 2;
-                a[2] = 4;
-                a[3] = 6;
-                for (let i = 4; i <= n; ++i)
+                a[0] = 2;
+                a[1] = 4;
+                a[2] = 6;
+                for (let i = 3; i < n; ++i)
                     a[i] = 2 * a[i - 2];
                 break;
             case 4:
-                for (let i = 1; i <= n; ++i)
-                    a[i] = 4 * i - 2;
+                for (let i = 0; i < n; ++i)
+                    a[i] = 4 * i + 2;
                 break;
             case 5:
-                for (let i = 1; i <= n; ++i)
-                    a[i] = 4 * i;
+                for (let i = 0; i < n; ++i)
+                    a[i] = 4 * (i + 1);
                 break;
             default:
                 throw new Error('invalid stepSizeSequence selected');
@@ -199,9 +198,9 @@ class Solver {
                         dens[kln + i] = t[0][this.denseComponents[i]];
                     // compute solution at mid-point
                     for (let j = 2; j <= kc; ++j) {
-                        let dblenj = nj[j];
+                        let dblenj = nj[j - 1];
                         for (let l = j; l >= 2; --l) {
-                            let factor = Math.pow((dblenj / nj[l - 1]), 2) - 1;
+                            let factor = Math.pow((dblenj / nj[l - 2]), 2) - 1;
                             for (let i = 0; i < nrd; ++i) {
                                 ySafe[l - 2][i] = ySafe[l - 1][i] + (ySafe[l - 1][i] - ySafe[l - 2][i]) / factor;
                             }
@@ -222,16 +221,16 @@ class Solver {
                         // compute kmi-th derivative at mid-point
                         let kbeg = (kmi + 1) / 2 | 0;
                         for (let kk = kbeg; kk <= kc; ++kk) {
-                            let facnj = Math.pow((nj[kk] / 2), (kmi - 1));
+                            let facnj = Math.pow((nj[kk - 1] / 2), (kmi - 1));
                             iPt = iPoint[kk + 1] - 2 * kk + kmi;
                             for (let i = 0; i < nrd; ++i) {
                                 ySafe[kk - 1][i] = fSafe[iPt][i + 1] * facnj;
                             }
                         }
                         for (let j = kbeg + 1; j <= kc; ++j) {
-                            let dblenj = nj[j];
+                            let dblenj = nj[j - 1];
                             for (let l = j; l >= kbeg + 1; --l) {
-                                let factor = Math.pow((dblenj / nj[l - 1]), 2) - 1;
+                                let factor = Math.pow((dblenj / nj[l - 2]), 2) - 1;
                                 for (let i = 0; i < nrd; ++i) {
                                     ySafe[l - 2][i] = ySafe[l - 1][i] + (ySafe[l - 1][i] - ySafe[l - 2][i]) / factor;
                                 }
@@ -344,19 +343,20 @@ class Solver {
                 h = posneg * Math.abs(h);
                 return true;
             };
+            // TODO: make `j` count from zero rather than one
             let midex = (j) => {
                 const dy = Array(this.n);
                 // Computes the jth line of the extrapolation table and
                 // provides an estimation of the optional stepsize
-                const hj = h / nj[j];
+                const hj = h / nj[j - 1];
                 // Euler starting step
                 for (let i = 0; i < this.n; ++i) {
                     yh1[i] = y[i];
                     yh2[i] = y[i] + hj * dz[i];
                 }
                 // Explicit midpoint rule
-                const m = nj[j] - 1;
-                const njMid = (nj[j] / 2) | 0;
+                const m = nj[j - 1] - 1;
+                const njMid = (nj[j - 1] / 2) | 0;
                 for (let mm = 1; mm <= m; ++mm) {
                     if (this.denseOutput && mm === njMid) {
                         for (let i = 0; i < this.denseComponents.length; ++i) {
@@ -406,14 +406,14 @@ class Solver {
                 for (let i = 0; i < this.n; ++i) {
                     t[j - 1][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2;
                 }
-                nEval += nj[j];
+                nEval += nj[j - 1];
                 // polynomial extrapolation
                 if (j === 1)
-                    return; // was j.eq.1
-                const dblenj = nj[j];
+                    return;
+                const dblenj = nj[j - 1];
                 let fac;
                 for (let l = j; l > 1; --l) {
-                    fac = Math.pow((dblenj / nj[l - 1]), 2) - 1;
+                    fac = Math.pow((dblenj / nj[l - 2]), 2) - 1;
                     for (let i = 0; i < this.n; ++i) {
                         t[l - 2][i] = t[l - 1][i] + (t[l - 1][i] - t[l - 2][i]) / fac;
                     }
@@ -524,9 +524,9 @@ class Solver {
             const nj = Solver.stepSizeSequence(nSeq, this.maxExtrapolationColumns);
             // Define the a[i] for order selection
             const a = Array(this.maxExtrapolationColumns);
-            a[0] = 1 + nj[1];
+            a[0] = 1 + nj[0];
             for (let i = 1; i < this.maxExtrapolationColumns; ++i) {
-                a[i] = a[i - 1] + nj[i + 1];
+                a[i] = a[i - 1] + nj[i];
             }
             // Initial Scaling
             const scal = Array(this.n);
@@ -545,9 +545,9 @@ class Solver {
             if (solOut) {
                 if (this.denseOutput) {
                     iPoint[1] = 0;
-                    for (let i = 1; i <= this.maxExtrapolationColumns; ++i) {
+                    for (let i = 1; i <= this.maxExtrapolationColumns; ++i) { // TODO: change loop index to 0 base
                         let njAdd = 4 * i - 2;
-                        if (nj[i] > njAdd)
+                        if (nj[i - 1] > njAdd)
                             ++njAdd;
                         iPoint[i + 1] = iPoint[i] + njAdd;
                     }
@@ -643,7 +643,7 @@ class Solver {
                             if (err <= 1) {
                                 state = STATE.Accept;
                             }
-                            else if (err > Math.pow(((nj[k + 1] * nj[k]) / 4), 2)) {
+                            else if (err > Math.pow(((nj[k] * nj[k - 1]) / 4), 2)) {
                                 state = STATE.Reject;
                             }
                             else
@@ -664,8 +664,8 @@ class Solver {
                         state = STATE.HopeForConvergence;
                         continue;
                     case STATE.HopeForConvergence:
-                        // hope for convergence in line k + 1
-                        if (err > Math.pow((nj[k + 1] / 2), 2)) {
+                        // hope for convergence in line k + 1  (TODO: adjust comment to k when we change the base of that index)
+                        if (err > Math.pow((nj[k] / 2), 2)) {
                             state = STATE.Reject;
                             continue;
                         }

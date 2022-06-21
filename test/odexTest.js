@@ -41,11 +41,11 @@ describe('Odex', () => {
     ];
     let trig = (x, y) => [y[1], -y[0]];
     describe('stepSizeSequence', () => {
-        it('is correct for Type 1', () => assert.deepEqual([0, 2, 4, 6, 8, 10, 12, 14, 16], odex_1.Solver.stepSizeSequence(1, 8)));
-        it('is correct for Type 2', () => assert.deepEqual([0, 2, 4, 8, 12, 16, 20, 24, 28], odex_1.Solver.stepSizeSequence(2, 8)));
-        it('is correct for Type 3', () => assert.deepEqual([0, 2, 4, 6, 8, 12, 16, 24, 32], odex_1.Solver.stepSizeSequence(3, 8)));
-        it('is correct for Type 4', () => assert.deepEqual([0, 2, 6, 10, 14, 18, 22, 26, 30], odex_1.Solver.stepSizeSequence(4, 8)));
-        it('is correct for Type 5', () => assert.deepEqual([0, 4, 8, 12, 16, 20, 24, 28, 32], odex_1.Solver.stepSizeSequence(5, 8)));
+        it('is correct for Type 1', () => assert.deepEqual([2, 4, 6, 8, 10, 12, 14, 16], odex_1.Solver.stepSizeSequence(1, 8)));
+        it('is correct for Type 2', () => assert.deepEqual([2, 4, 8, 12, 16, 20, 24, 28], odex_1.Solver.stepSizeSequence(2, 8)));
+        it('is correct for Type 3', () => assert.deepEqual([2, 4, 6, 8, 12, 16, 24, 32], odex_1.Solver.stepSizeSequence(3, 8)));
+        it('is correct for Type 4', () => assert.deepEqual([2, 6, 10, 14, 18, 22, 26, 30], odex_1.Solver.stepSizeSequence(4, 8)));
+        it('is correct for Type 5', () => assert.deepEqual([4, 8, 12, 16, 20, 24, 28, 32], odex_1.Solver.stepSizeSequence(5, 8)));
         it('throws for a bad Type', () => assert.throws(() => odex_1.Solver.stepSizeSequence(6, 8), Error));
         it('throws for a bad Type', () => assert.throws(() => odex_1.Solver.stepSizeSequence(0, 8), Error));
     });
