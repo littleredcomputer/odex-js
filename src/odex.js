@@ -93,7 +93,7 @@ class Solver {
         for (let i = 0; i < a.length; ++i)
             a[i] = b[i];
     }
-    // Generate step size sequence and return as a 1-based array of length n.
+    // Generate step size sequence and return as an array of length n.
     static stepSizeSequence(nSeq, n) {
         const a = Array(n);
         switch (nSeq) {
@@ -214,7 +214,7 @@ class Solver {
                         let kbeg = (kmi + 1) / 2 | 0;
                         for (let kk = kbeg; kk <= kc; ++kk) {
                             let facnj = Math.pow((nj[kk - 1] / 2), (kmi - 1));
-                            iPt = iPoint[kk + 1] - 2 * kk + kmi;
+                            iPt = iPoint[kk] - 2 * kk + kmi;
                             for (let i = 0; i < nrd; ++i) {
                                 ySafe[kk - 1][i] = fSafe[iPt - 1][i] * facnj; // TODO warning: if we change definition of iPoint, need to fix this
                             }
@@ -235,8 +235,8 @@ class Solver {
                             continue;
                         // compute differences
                         for (let kk = (kmi + 2) / 2 | 0; kk <= kc; ++kk) {
-                            let lbeg = iPoint[kk + 1];
-                            let lend = iPoint[kk] + kmi + 1;
+                            let lbeg = iPoint[kk];
+                            let lend = iPoint[kk - 1] + kmi + 1;
                             if (kmi === 1 && nSeq === 4)
                                 lend += 2;
                             let l;
@@ -253,8 +253,8 @@ class Solver {
                         }
                         // compute differences
                         for (let kk = (kmi + 2) / 2 | 0; kk <= kc; ++kk) {
-                            let lbeg = iPoint[kk + 1] - 1;
-                            let lend = iPoint[kk] + kmi + 2;
+                            let lbeg = iPoint[kk] - 1;
+                            let lend = iPoint[kk - 1] + kmi + 2;
                             for (let l = lbeg; l >= lend; l -= 2) {
                                 for (let i = 0; i < nrd; ++i) {
                                     fSafe[l - 1][i] -= fSafe[l - 3][i];
@@ -436,7 +436,7 @@ class Solver {
             const interp = (y, imit) => {
                 // computes the coefficients of the interpolation formula
                 const n = this.denseComponents.length;
-                let a = new Array(31); // zero-based: 0:30
+                let a = new Array(31);
                 // begin with Hermite interpolation
                 for (let i = 0; i < this.denseComponents.length; ++i) {
                     const y0 = y[i];
@@ -530,16 +530,16 @@ class Solver {
             let k = Math.max(2, Math.min(this.maxExtrapolationColumns - 1, Math.floor(-Math.log10(rTol[0] + 1e-40) * 0.6 + 1.5)));
             let h = Math.max(Math.abs(this.initialStepSize), 1e-4);
             h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2);
-            const iPoint = Solver.dim(this.maxExtrapolationColumns + 1);
+            const iPoint = Array(this.maxExtrapolationColumns + 1);
             const errfac = Array(2 * this.maxExtrapolationColumns);
             let xOld = x;
             let iPt = 0;
             if (solOut) {
                 if (this.denseOutput) {
-                    iPoint[1] = 0;
-                    for (let i = 1; i <= this.maxExtrapolationColumns; ++i) { // TODO: change loop index to 0 base
-                        let njAdd = 4 * i - 2;
-                        if (nj[i - 1] > njAdd)
+                    iPoint[0] = 0;
+                    for (let i = 0; i < this.maxExtrapolationColumns; ++i) {
+                        let njAdd = 4 * (i + 1) - 2;
+                        if (nj[i] > njAdd)
                             ++njAdd;
                         iPoint[i + 1] = iPoint[i] + njAdd;
                     }
@@ -655,7 +655,7 @@ class Solver {
                         state = STATE.HopeForConvergence;
                         continue;
                     case STATE.HopeForConvergence:
-                        // hope for convergence in line k + 1  (TODO: adjust comment to k when we change the base of that index)
+                        // hope for convergence in line k + 1
                         if (err > Math.pow((nj[k] / 2), 2)) {
                             state = STATE.Reject;
                             continue;
@@ -699,6 +699,4 @@ class Solver {
     }
 }
 exports.Solver = Solver;
-// return a 1-based array of length n. Initial values undefined.
-Solver.dim = (n) => Array(n + 1);
 //# sourceMappingURL=odex.js.map
