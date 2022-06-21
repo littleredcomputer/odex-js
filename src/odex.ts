@@ -332,12 +332,12 @@ export class Solver {
         } else {
           if (kc <= k) {
             kopt = kc
-            if (w[kc - 1] < w[kc] * this.stepSizeFac3) kopt = kc - 1
-            if (w[kc] < w[kc - 1] * this.stepSizeFac4) kopt = Math.min(kc + 1, this.maxExtrapolationColumns - 1)
+            if (w[kc - 2] < w[kc - 1] * this.stepSizeFac3) kopt = kc - 1
+            if (w[kc - 1] < w[kc - 2] * this.stepSizeFac4) kopt = Math.min(kc + 1, this.maxExtrapolationColumns - 1)
           } else {
             kopt = kc - 1
-            if (kc > 3 && w[kc - 2] < w[kc - 1] * this.stepSizeFac3) kopt = kc - 2
-            if (w[kc] < w[kopt] * this.stepSizeFac4) kopt = Math.min(kc, this.maxExtrapolationColumns - 1)
+            if (kc > 3 && w[kc - 3] < w[kc - 2] * this.stepSizeFac3) kopt = kc - 2
+            if (w[kc - 1] < w[kopt - 1] * this.stepSizeFac4) kopt = Math.min(kc, this.maxExtrapolationColumns - 1)
           }
         }
         // after a rejected step
@@ -350,7 +350,7 @@ export class Solver {
         if (kopt <= kc) {
           h = hh[kopt-1]
         } else {
-          if (kc < k && w[kc] < w[kc - 1] * this.stepSizeFac4) {
+          if (kc < k && w[kc - 1] < w[kc - 2] * this.stepSizeFac4) {
             h = hh[kc-1] * a[kopt] / a[kc-1]
           } else {
             h = hh[kc-1] * a[kopt-1] / a[kc-1]
@@ -457,7 +457,7 @@ export class Solver {
           Math.max(facMin, (err / this.stepSafetyFactor1) ** exp0 / this.stepSafetyFactor2))
         fac = 1 / fac
         hh[j-1] = Math.min(Math.abs(h) * fac, hMax)
-        w[j] = a[j-1] / hh[j-1]
+        w[j-1] = a[j-1] / hh[j-1]
       }
 
       const interp = (y: number[], imit: number) => {
@@ -584,8 +584,8 @@ export class Solver {
       let err = 0
       let errOld = 1e10
       let hoptde = posneg * hMax
-      const w = Solver.dim(this.maxExtrapolationColumns)
-      w[1] = 0
+      const w = Array(this.maxExtrapolationColumns)
+      w[0] = 0
       let reject = false
       let last = false
       let atov: boolean
