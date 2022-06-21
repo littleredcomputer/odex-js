@@ -120,13 +120,6 @@ export class Solver {
   // return a 1-based array of length n. Initial values undefined.
   private static dim = (n: number) => Array(n + 1)
 
-  // Make a 1-based 2D array, with r rows and c columns. The initial values are undefined.
-  private static dim2(r: number, c: number): number[][] {
-    let a = new Array(r + 1)
-    for (let i = 1; i <= r; ++i) a[i] = Solver.dim(c)
-    return a
-  }
-
   private expandToArray(x: number|number[]): number[] {
     // If x is an array, return it. If x is a number, return a new array, sized
     // to the dimension of the problem, filled with the number.
@@ -212,7 +205,8 @@ export class Solver {
     let [nEval, nStep, nAccept, nReject] = [0, 0, 0, 0]
 
     // call to core integrator
-    const fSafe = Solver.dim2(lfSafe, this.denseComponents.length)
+    const fSafe = Array(lfSafe+1) // TODO: make 0-based
+    for (let i = 1; i < fSafe.length; ++i) fSafe[i] = Array(this.denseComponents.length) // TODO: change loop index to 0 as above
 
     let odxcor = (): Outcome => {
 
@@ -257,7 +251,7 @@ export class Solver {
               let facnj = (nj[kk-1] / 2) ** (kmi - 1)
               iPt = iPoint[kk + 1] - 2 * kk + kmi
               for (let i = 0; i < nrd; ++i) {
-                ySafe[kk-1][i] = fSafe[iPt][i+1] * facnj
+                ySafe[kk-1][i] = fSafe[iPt][i] * facnj
               }
             }
             for (let j = kbeg + 1; j <= kc; ++j) {
@@ -279,13 +273,13 @@ export class Solver {
               if (kmi === 1 && nSeq === 4) lend += 2
               let l: number
               for (l = lbeg; l >= lend; l -= 2) {
-                for (let i = 1; i <= nrd; ++i) {
+                for (let i = 0; i < nrd; ++i) {
                   fSafe[l][i] -= fSafe[l - 2][i]
                 }
               }
               if (kmi === 1 && nSeq === 4) {
                 l = lend - 2
-                for (let i = 0; i < nrd; ++i) fSafe[l][i+1] -= dz[this.denseComponents[i]]
+                for (let i = 0; i < nrd; ++i) fSafe[l][i] -= dz[this.denseComponents[i]]
               }
             }
             // compute differences
@@ -293,7 +287,7 @@ export class Solver {
               let lbeg = iPoint[kk + 1] - 1
               let lend = iPoint[kk] + kmi + 2
               for (let l = lbeg; l >= lend; l -= 2) {
-                for (let i = 1; i <= nrd; ++i) {
+                for (let i = 0; i < nrd; ++i) {
                   fSafe[l][i] -= fSafe[l - 2][i]
                 }
               }
@@ -385,7 +379,7 @@ export class Solver {
           if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
             ++iPt
             for (let i = 0; i < this.denseComponents.length; ++i) {
-              fSafe[iPt][i+1] = dy[this.denseComponents[i]]
+              fSafe[iPt][i] = dy[this.denseComponents[i]]
             }
           }
           for (let i = 0; i < this.n; ++i) {
@@ -418,7 +412,7 @@ export class Solver {
         if (this.denseOutput && njMid <= 2 * j - 1) {
           ++iPt
           for (let i = 0; i < this.denseComponents.length; ++i) {
-            fSafe[iPt][i+1] = dy[this.denseComponents[i]]
+            fSafe[iPt][i] = dy[this.denseComponents[i]]
           }
         }
         for (let i = 0; i < this.n; ++i) {
