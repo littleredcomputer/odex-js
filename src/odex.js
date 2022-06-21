@@ -55,12 +55,7 @@ class Solver {
     grid(dt, out) {
         if (!this.denseOutput)
             throw new Error('Must set .denseOutput to true when using grid');
-        let components = this.denseComponents;
-        if (!components) {
-            components = [];
-            for (let i = 0; i < this.n; ++i)
-                components.push(i);
-        }
+        const components = this.denseComponents;
         let t;
         let first = true;
         return (xOld, x, y, interpolate) => {
@@ -273,7 +268,7 @@ class Solver {
                         let errint = 0;
                         for (let i = 0; i < nrd; ++i)
                             errint += Math.pow((dens[(kmit + 4) * nrd + i] / scal[this.denseComponents[i]]), 2);
-                        errint = Math.sqrt(errint / nrd) * errfac[kmit];
+                        errint = Math.sqrt(errint / nrd) * errfac[kmit - 1];
                         hoptde = h / Math.max(Math.pow(errint, (1 / (kmit + 4))), 0.01);
                         if (errint > 10) {
                             h = hoptde;
@@ -536,7 +531,7 @@ class Solver {
             let h = Math.max(Math.abs(this.initialStepSize), 1e-4);
             h = posneg * Math.min(h, hMax, Math.abs(xEnd - x) / 2);
             const iPoint = Solver.dim(this.maxExtrapolationColumns + 1);
-            const errfac = Solver.dim(2 * this.maxExtrapolationColumns);
+            const errfac = Array(2 * this.maxExtrapolationColumns);
             let xOld = x;
             let iPt = 0;
             if (solOut) {
@@ -548,14 +543,13 @@ class Solver {
                             ++njAdd;
                         iPoint[i + 1] = iPoint[i] + njAdd;
                     }
-                    for (let mu = 1; mu <= 2 * this.maxExtrapolationColumns; ++mu) {
-                        let errx = Math.sqrt(mu / (mu + 4)) * 0.5;
-                        let prod = Math.pow((1 / (mu + 4)), 2);
-                        for (let j = 1; j <= mu; ++j)
+                    for (let mu = 0; mu < 2 * this.maxExtrapolationColumns; ++mu) {
+                        let errx = Math.sqrt((mu + 1) / (mu + 5)) * 0.5;
+                        let prod = Math.pow((1 / (mu + 5)), 2);
+                        for (let j = 1; j <= mu + 1; ++j)
                             prod *= errx / j;
                         errfac[mu] = prod;
                     }
-                    iPt = 0;
                 }
                 // check return value and abandon integration if called for
                 if (false === solOut(xOld, x, y)) {
