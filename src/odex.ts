@@ -29,8 +29,8 @@ export interface OutputFunction {                    // value callback
   (xold: number,                              // left edge of solution interval
    x: number,                                 // right edge of solution interval (y = F(x))
    y: number[],                               // F(x)
-   dense?: (c: number, x: number) => number)  // dense interpolator. Valid in the range [xold, x].
-    : boolean|void                            // return false to halt integration
+   dense?: (c: number, 
+            x: number) => number): void       // dense interpolator. Valid in the range [xold, x].
 }
 
 export enum Outcome {
@@ -64,8 +64,7 @@ export class Solver {
   absoluteTolerance: number|number[]  // ATOL. Can be a scalar or vector of length N.
   debug: boolean
 
-  constructor(n: number) {
-    this.n = n
+  constructor() {
     this.uRound = 2.3e-16
     this.maxSteps = 10000
     this.initialStepSize = 1e-4
@@ -167,6 +166,7 @@ export class Solver {
         xEnd: number,
         solOut?: OutputFunction) {
 
+    this.n = y0.length
     let y = y0.slice()
     let dz = Array(this.n)
     let yh1 = Array(this.n)
@@ -204,10 +204,7 @@ export class Solver {
 
     let odxcor = (): Outcome => {
 
-      let acceptStep = (): boolean => {   // label 60
-        // Returns true if we should continue the integration. The only time false
-        // is returned is when the user's solution observation function has returned false,
-        // indicating that she does not wish to continue the computation.
+      let acceptStep = (): void => {   // label 60
         const ncom = (2 * this.maxExtrapolationColumns + 5) + this.denseComponents.length
         const dens = Array(ncom)
         xOld = x
@@ -299,7 +296,7 @@ export class Solver {
               x = xOld
               ++nReject
               reject = true
-              return true
+              return
             }
           }
           for (let i = 1; i <= this.n; ++i) dz[i-1] = yh2[i-1]
@@ -308,8 +305,7 @@ export class Solver {
         ++nAccept
         if (solOut) {
           // If denseOutput, we also want to supply the dense closure.
-          if (solOut(xOld, x, y,
-              this.denseOutput && contex(xOld, h, kmit, dens)) === false) return false
+          solOut(xOld, x, y, this.denseOutput && contex(xOld, h, kmit, dens))
         }
         // compute optimal order
         let kopt: number
@@ -332,7 +328,7 @@ export class Solver {
           k = Math.min(kopt, kc)
           h = posneg * Math.min(Math.abs(h), Math.abs(hh[k-1]))
           reject = false
-          return true  // goto 10
+          return  // goto 10
         }
         if (kopt <= kc) {
           h = hh[kopt-1]
@@ -346,7 +342,6 @@ export class Solver {
         // compute stepsize for next step
         k = kopt
         h = posneg * Math.abs(h)
-        return true
       }
 
       // TODO: make `j` count from zero rather than one
@@ -563,10 +558,7 @@ export class Solver {
             errfac[mu] = prod
           }
         }
-        // check return value and abandon integration if called for
-        if (false === solOut(xOld, x, y)) {
-          return Outcome.EarlyReturn
-        }
+        solOut(xOld, x, y)
       }
       let err = 0
       let errOld = 1e10
@@ -673,7 +665,7 @@ export class Solver {
             continue
 
           case STATE.Accept:
-            if (!acceptStep()) return Outcome.EarlyReturn
+            acceptStep()
             state = STATE.Start
             continue
 
