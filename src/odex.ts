@@ -33,12 +33,6 @@ export interface OutputFunction {                    // value callback
             x: number) => number): void       // dense interpolator. Valid in the range [xold, x].
 }
 
-export enum Outcome {
-  Converged,
-  MaxStepsExceeded,
-  EarlyReturn
-}
-
 export class Solver {
   n: number                           // dimension of the system
   uRound: number                      // WORK(1), machine epsilon. (WORK, IWORK are references to odex.f)
@@ -202,7 +196,7 @@ export class Solver {
     const fSafe = Array(lfSafe)
     for (let i = 0; i < fSafe.length; ++i) fSafe[i] = Array(this.denseComponents.length)
 
-    let odxcor = (): Outcome => {
+    let odxcor = (): void => {
 
       let acceptStep = (): void => {   // label 60
         const ncom = (2 * this.maxExtrapolationColumns + 5) + this.denseComponents.length
@@ -615,7 +609,7 @@ export class Solver {
             iPt = 0
             ++nStep
             if (nStep >= this.maxSteps) {
-              return Outcome.MaxStepsExceeded
+              throw new Error('maximum allowed steps exceeded: ' + nStep)
             }
             kc = k - 1
             for (let j = 1; j <= kc; ++j) {
@@ -678,7 +672,6 @@ export class Solver {
             state = STATE.BasicIntegrationStep
         }
       }
-      return Outcome.Converged
     }
 
     const outcome = odxcor()

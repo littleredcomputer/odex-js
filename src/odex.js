@@ -18,14 +18,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Solver = exports.Outcome = void 0;
+exports.Solver = void 0;
 const console_1 = require("console");
-var Outcome;
-(function (Outcome) {
-    Outcome[Outcome["Converged"] = 0] = "Converged";
-    Outcome[Outcome["MaxStepsExceeded"] = 1] = "MaxStepsExceeded";
-    Outcome[Outcome["EarlyReturn"] = 2] = "EarlyReturn";
-})(Outcome = exports.Outcome || (exports.Outcome = {}));
 class Solver {
     constructor() {
         this.uRound = 2.3e-16;
@@ -608,7 +602,7 @@ class Solver {
                         iPt = 0;
                         ++nStep;
                         if (nStep >= this.maxSteps) {
-                            return Outcome.MaxStepsExceeded;
+                            throw new Error('maximum allowed steps exceeded: ' + nStep);
                         }
                         kc = k - 1;
                         for (let j = 1; j <= kc; ++j) {
@@ -675,7 +669,6 @@ class Solver {
                         state = STATE.BasicIntegrationStep;
                 }
             }
-            return Outcome.Converged;
         };
         const outcome = odxcor();
         return {

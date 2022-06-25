@@ -56,8 +56,7 @@ describe('Odex', () => {
         s.initialStepSize = 0.01;
         s.maxSteps = 50;
         const y0 = [2, 0];
-        const { y: [y1, y1p], outcome: outcome } = s.solve(vanDerPol(0.1), 0, y0, 2);
-        it('converged', () => assert.equal(outcome, odex_1.Outcome.Converged));
+        const { y: [y1, y1p] } = s.solve(vanDerPol(0.1), 0, y0, 2);
         it('worked for y', () => assert(Math.abs(y1 + 1.58184) < tol * 10));
         it(`worked for y'`, () => assert(Math.abs(y1p - 0.978449) < tol * 10));
     });
@@ -66,28 +65,23 @@ describe('Odex', () => {
         const tol = 1e-8;
         s.absoluteTolerance = s.relativeTolerance = tol;
         let y0 = [1];
-        let { y: [y1], outcome: outcome } = s.solve((x, y) => y, 0, y0, 1);
-        it('converged', () => assert.equal(outcome, odex_1.Outcome.Converged));
+        let { y: [y1] } = s.solve((x, y) => y, 0, y0, 1);
         it('worked for y', () => assert(Math.abs(y1 - Math.exp(1)) < tol * 10));
     });
     describe('y" = -y (sine/cosine)', () => {
         let s = NewSolver();
         let y0 = [0, 1];
-        let { y: [y1, y1p], outcome: outcome } = s.solve(trig, 0, y0, 1);
-        it('converged', () => assert.equal(outcome, odex_1.Outcome.Converged));
+        let { y: [y1, y1p] } = s.solve(trig, 0, y0, 1);
         it('worked for y', () => assert(Math.abs(y1 - Math.sin(1)) < 1e-5));
         it(`worked for y'`, () => assert(Math.abs(y1p - Math.cos(1)) < 1e-5));
         // test for correct operation in the negative x direction
         let b = s.solve(trig, 0, y0, -1);
-        it('converged (backwards)', () => assert.equal(b.outcome, odex_1.Outcome.Converged));
         it('worked for y (backwards)', () => assert(Math.abs(b.y[0] - Math.sin(-1)) < 1e-5));
         it(`worked for y' (backwards)`, () => assert(Math.abs(b.y[1] - Math.cos(-1)) < 1e-5));
         let c = s.solve(trig, 0, y0, 10);
-        it('converged: long range', () => assert.equal(c.outcome, odex_1.Outcome.Converged));
         it('worked for y', () => assert(Math.abs(c.y[0] - Math.sin(10)) < 1e-4));
         it(`worked for y'`, () => assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4));
         let cb = s.solve(trig, 0, y0, -10);
-        it('converged: long range (backwards)', () => assert.equal(cb.outcome, odex_1.Outcome.Converged));
         it('worked for y (backwards)', () => assert(Math.abs(cb.y[0] - Math.sin(-10)) < 1e-4));
         it(`worked for y' (backwards)`, () => assert(Math.abs(cb.y[1] - Math.cos(-10)) < 1e-4));
     });
@@ -96,14 +90,12 @@ describe('Odex', () => {
         s.initialStepSize = 1e-4;
         let y0 = [0.3550280539, -0.2588194038];
         let a = s.solve(airy, 0, y0, 1);
-        it('worked', () => assert(a.outcome === odex_1.Outcome.Converged));
         it('1st kind: works for y', () => assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5));
         it(`1st kind: works for y'`, () => assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5));
         // Airy equation of the second kind (or "Bairy equation"); this has different
         // initial conditions
         y0 = [0.6149266274, 0.4482883574];
         let b = s.solve(airy, 0, y0, 1);
-        it('worked', () => assert(b.outcome === odex_1.Outcome.Converged));
         it('2nd kind: works for y', () => assert(Math.abs(b.y[0] - 1.207423595) < 1e-5));
         it(`2nd kind: works for y'`, () => assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5));
     });
@@ -111,26 +103,23 @@ describe('Odex', () => {
         let s = NewSolver();
         let y1 = [0.4400505857, 0.3251471008];
         let y2 = s.solve(bessel(1), 1, y1, 2);
-        it('converged', () => assert(y2.outcome === odex_1.Outcome.Converged));
         it('y', () => assert(Math.abs(y2.y[0] - 0.5767248078) < 1e-5));
         it(`y"`, () => assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5));
         s.initialStepSize = 1e-6;
         let y3 = s.solve(bessel(1), 1, y1, 2);
-        it('converged', () => assert(y3.outcome === odex_1.Outcome.Converged));
         it('y (small step size)', () => assert(Math.abs(y3.y[0] - 0.5767248078) < 1e-6));
         it(`y' (small step size)`, () => assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6));
         s.absoluteTolerance = s.relativeTolerance = 1e-12;
         let y4 = s.solve(bessel(1), 1, y1, 2);
-        it('converged', () => assert(y4.outcome === odex_1.Outcome.Converged));
         it('y (low tolerance)', () => assert(Math.abs(y4.y[0] - 0.5767248078) < 1e-10));
         it('y\' (low tolerance)', () => assert(Math.abs(y4.y[1] + 0.06447162474) < 1e-10));
     });
     describe('max step control', () => {
         let s = NewSolver();
         s.maxSteps = 2;
-        let o = s.solve(vanDerPol(0.1), 0, [2, 0], 10);
-        it('didn\' t converge', () => assert(o.outcome === odex_1.Outcome.MaxStepsExceeded));
-        it('tried', () => assert(o.nStep === s.maxSteps));
+        assert.throws(() => {
+            s.solve(vanDerPol(0.1), 0, [2, 0], 10);
+        }, Error('maximum allowed steps exceeded: 2'));
     });
     describe('cosine (observer)', () => {
         let s = NewSolver();
@@ -138,7 +127,6 @@ describe('Odex', () => {
             const value = y[0];
             it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.cos(x)) < 1e-4));
         });
-        it('converged', () => assert(o.outcome === odex_1.Outcome.Converged));
     });
     describe('sine (observer)', () => {
         let s = NewSolver();
@@ -146,7 +134,6 @@ describe('Odex', () => {
             const value = y[0];
             it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.sin(x)) < 1e-5));
         });
-        it('converged', () => assert(o.outcome === odex_1.Outcome.Converged));
     });
     describe('cosine (dense output)', () => {
         let s = NewSolver();
@@ -154,7 +141,6 @@ describe('Odex', () => {
         let o = s.solve(trig, 0, [1, 0], 2 * Math.PI, () => {
             // console.log('dense cos', Math.abs(y[0]-Math.cos(x)))
         });
-        it('converged', () => assert(o.outcome === odex_1.Outcome.Converged));
     });
     describe('cosine (dense output, no error estimation)', () => {
         let s = NewSolver();
@@ -163,7 +149,6 @@ describe('Odex', () => {
         let o = s.solve(trig, 0, [1, 0], 2 * Math.PI, () => {
             // console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)))
         });
-        it('converged', () => assert(o.outcome === odex_1.Outcome.Converged));
         it('evaluated f the correct number of times', () => assert(o.nEval === 183));
         it('took the correct number of steps', () => assert(o.nStep === 8));
         it('had no rejection steps', () => assert(o.nReject === 0));
@@ -183,7 +168,6 @@ describe('Odex', () => {
                 current += grid;
             }
         });
-        it('converged', () => assert(o.outcome === odex_1.Outcome.Converged));
         it('evaluated f the correct number of times', () => assert(o.nEval === 101));
         it('took the correct number of steps', () => assert(o.nStep === 7));
         it('had no rejection steps', () => assert(o.nReject === 0));
@@ -195,7 +179,6 @@ describe('Odex', () => {
             const value = y[0];
             it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.cos(x)) < 2e-4));
         });
-        it('converged', () => assert(o.outcome === odex_1.Outcome.Converged));
         it('evaluated f the correct number of times', () => assert(o.nEval === 920));
         it('took the correct number of steps', () => assert(o.nStep === 34));
         it('had no rejection steps', () => assert(o.nReject === 0));
@@ -352,7 +335,6 @@ describe('Odex', () => {
                 });
             }
         }));
-        it('converges', () => { assert(result.outcome === odex_1.Outcome.Converged); });
     });
     describe('Configuration debugging', () => {
         it('throws when you use grid without denseOutput', () => {
