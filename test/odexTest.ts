@@ -126,9 +126,9 @@ describe('Odex', () => {
   describe('max step control', () => {
     let s = NewSolver()
     s.maxSteps = 2
-    assert.throws(() => {
+    it ('reports correct error', () => assert.throws(() => {
       s.solve(vanDerPol(0.1), 0, [2, 0], 10)
-    }, Error('maximum allowed steps exceeded: 2'))
+    }, Error('maximum allowed steps exceeded: 2')))
   })
   describe('cosine (observer)', () => {
     let s = NewSolver()

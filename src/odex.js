@@ -670,10 +670,9 @@ class Solver {
                 }
             }
         };
-        const outcome = odxcor();
+        odxcor();
         return {
             y: y,
-            outcome: outcome,
             nStep: nStep,
             xEnd: xEnd,
             nAccept: nAccept,
