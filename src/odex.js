@@ -45,6 +45,10 @@ class Solver {
         this.absoluteTolerance = 1e-5;
         this.debug = false;
     }
+    // question: why is this legal? How to declare that a function must not return undefined in this case?
+    f() {
+        return undefined;
+    }
     grid(dt, out) {
         if (!this.denseOutput)
             throw new Error('Must set .denseOutput to true when using grid');
@@ -328,8 +332,11 @@ class Solver {
             let midex = (j) => {
                 const dy = Array(this.n);
                 // Computes the jth line of the extrapolation table and
-                // provides an estimation of the optional stepsize
+                // provides an estimation of the optional stepsize. Returns
+                // false if the Fortran condition "ATOV" is true. Not quite 
+                // sure what that stands for as of this writing.
                 const hj = h / nj[j - 1];
+                console.log('midex', j, ' hj ', hj);
                 // Euler starting step
                 for (let i = 0; i < this.n; ++i) {
                     yh1[i] = y[i];
@@ -369,10 +376,9 @@ class Solver {
                         const quot = del2 / Math.max(this.uRound, del1);
                         if (quot > 4) {
                             ++nEval;
-                            atov = true;
                             h *= this.stepSizeReductionFactor;
                             reject = true;
-                            return;
+                            return false;
                         }
                     }
                 }
@@ -386,17 +392,19 @@ class Solver {
                 }
                 for (let i = 0; i < this.n; ++i) {
                     t[j - 1][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2;
+                    console.log('a. t[%d][%d] = %f', j - 1, i, t[j - 1][i]);
                 }
                 nEval += nj[j - 1];
                 // polynomial extrapolation
                 if (j === 1)
-                    return;
+                    return true;
                 const dblenj = nj[j - 1];
                 let fac;
                 for (let l = j; l > 1; --l) {
                     fac = Math.pow((dblenj / nj[l - 2]), 2) - 1;
                     for (let i = 0; i < this.n; ++i) {
                         t[l - 2][i] = t[l - 1][i] + (t[l - 1][i] - t[l - 2][i]) / fac;
+                        console.log('b. t[%d][%d] = %f', l - 2, i, t[l - 2][i]);
                     }
                 }
                 err = 0;
@@ -408,10 +416,9 @@ class Solver {
                 }
                 err = Math.sqrt(err / this.n);
                 if (err * this.uRound >= 1 || (j > 2 && err >= errOld)) {
-                    atov = true;
-                    h *= this.stepSizeReductionFactor;
                     reject = true;
-                    return;
+                    h *= this.stepSizeReductionFactor;
+                    return false;
                 }
                 errOld = Math.max(4 * err, 1);
                 // compute optimal stepsizes
@@ -421,6 +428,7 @@ class Solver {
                 fac = 1 / fac;
                 hh[j - 1] = Math.min(Math.abs(h) * fac, hMax);
                 w[j - 1] = a[j - 1] / hh[j - 1];
+                return true;
             };
             const interp = (y, imit) => {
                 // computes the coefficients of the interpolation formula
@@ -549,7 +557,6 @@ class Solver {
             w[0] = 0;
             let reject = false;
             let last = false;
-            let atov;
             let kc = 0;
             let STATE;
             (function (STATE) {
@@ -565,7 +572,6 @@ class Solver {
                 this.debug && console.log('STATE', STATE[state], nStep, xOld, x, h, k, kc, hoptde);
                 switch (state) {
                     case STATE.Start:
-                        atov = false;
                         // Is xEnd reached in the next step?
                         if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * this.uRound)
                             break loop;
@@ -584,8 +590,7 @@ class Solver {
                             ++nStep;
                             for (let j = 1; j <= k; ++j) {
                                 kc = j;
-                                midex(j);
-                                if (atov)
+                                if (!midex(j))
                                     continue loop;
                                 if (j > 1 && err <= 1) {
                                     state = STATE.Accept;
@@ -606,8 +611,7 @@ class Solver {
                         }
                         kc = k - 1;
                         for (let j = 1; j <= kc; ++j) {
-                            midex(j);
-                            if (atov) {
+                            if (!midex(j)) {
                                 state = STATE.Start;
                                 continue loop;
                             }
@@ -628,8 +632,7 @@ class Solver {
                         }
                         continue;
                     case STATE.ConvergenceStep: // label 50
-                        midex(k);
-                        if (atov) {
+                        if (!midex(k)) {
                             state = STATE.Start;
                             continue;
                         }
@@ -647,8 +650,7 @@ class Solver {
                             continue;
                         }
                         kc = k + 1;
-                        midex(kc);
-                        if (atov)
+                        if (!midex(kc))
                             state = STATE.Start;
                         else if (err > 1)
                             state = STATE.Reject;
