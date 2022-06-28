@@ -24,11 +24,11 @@
   "license": "BSD-2-Clause",
   "devDependencies": {
     "@types/mocha": "^9.1.1",
-    "@types/node": "^17.0.44",
-    "coveralls": "^2.13.3",
-    "mocha": "^3.5.3",
+    "@types/node": "^17.0.45",
+    "coveralls": "^3.1.1",
+    "mocha": "^10.0.0",
     "mocha-lcov-reporter": "^1.3.0",
-    "typescript": "^4.7.3"
+    "typescript": "^4.7.4"
   },
   "tonicExampleFilename": "src/tonic-example.js"
 }
