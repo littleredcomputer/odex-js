@@ -31,7 +31,7 @@ export interface Derivative {
 // then dense will be a function capable of interpolating y values within the
 // solution interval. Supply the zero-based component number c to interpolate.
 export interface OutputFunction {
-  (xold: number, x: number, y: number[], dense?: (c: number, x: number) => number): void
+  (xold: number, x: number, y: number[], dense: (c: number, x: number) => number): void
 }
 
 export class Solver {
@@ -84,11 +84,6 @@ export class Solver {
     this.debug = false
   }
 
-  // question: why is this legal? How to declare that a function must not return undefined in this case?
-  f(): { x: boolean } {
-    return undefined
-  }
-
   grid(dt: number, out: (xOut: number, yOut: number[]) => any): OutputFunction {
     if (!this.denseOutput) throw new Error('Must set .denseOutput to true when using grid')
     const components = this.denseComponents
@@ -127,6 +122,10 @@ export class Solver {
     // Copy the elements of b into a
     assert(a.length === b.length)
     for (let i = 0; i < a.length; ++i) a[i] = b[i]
+  }
+
+  private noDenseOutput(c: number, x: number): number {
+    throw new Error('denseOutput not enabled for this problem')
   }
 
   // Generate step size sequence and return as an array of length n.
@@ -243,8 +242,6 @@ export class Solver {
     this.n = y0.length
     let y = y0.slice()
     let dz = Array(this.n)
-    let yh1 = Array(this.n)
-    let yh2 = Array(this.n)
     if (this.maxSteps <= 0) throw new Error('maxSteps must be positive')
     if (this.maxExtrapolationColumns <= 2) throw new Error('maxExtrapolationColumns must be > 2')
     const nSeq = this.stepSizeSequence || (this.denseOutput ? 4 : 1)
@@ -303,10 +300,11 @@ export class Solver {
           let krn = 4 * nrd
           for (let i = 0; i < nrd; ++i) dens[krn + i] = ySafe[0][i]
           // compute first derivative at right end
-          for (let i = 0; i < this.n; ++i) yh1[i] = t[0][i]
-          this.copy(yh2, f(x, yh1))
+          const t0i = Array(this.n)
+          for (let i = 0; i < this.n; ++i) t0i[i] = t[0][i]
+          const fx = f(x, t0i)
           krn = 3 * nrd
-          for (let i = 0; i < nrd; ++i) dens[krn + i] = yh2[this.denseComponents[i]] * h
+          for (let i = 0; i < nrd; ++i) dens[krn + i] = fx[this.denseComponents[i]] * h
           // THE LOOP
           for (let kmi = 1; kmi <= kmit; ++kmi) {
             // compute kmi-th derivative at mid-point
@@ -371,13 +369,13 @@ export class Solver {
               return
             }
           }
-          for (let i = 1; i <= this.n; ++i) dz[i - 1] = yh2[i - 1]
+          this.copy(dz, fx)
         }
         for (let i = 0; i < this.n; ++i) y[i] = t[0][i]
         ++nAccept
         if (solOut) {
           // If denseOutput, we also want to supply the dense closure.
-          solOut(xOld, x, y, this.denseOutput && this.contex(xOld, h, kmit, dens))
+          solOut(xOld, x, y, this.denseOutput ? this.contex(xOld, h, kmit, dens) : this.noDenseOutput)
         }
         // compute optimal order
         let kopt: number
@@ -416,14 +414,15 @@ export class Solver {
         h = posneg * Math.abs(h)
       }
 
-      // TODO: make `j` count from zero rather than one
       let midex = (j: number): boolean => {
         const dy = Array(this.n)
+        const yh1 = Array(this.n)
+        const yh2 = Array(this.n)
         // Computes the jth line of the extrapolation table and
         // provides an estimation of the optional stepsize. Returns
         // false if the Fortran condition "ATOV" is true. Not quite
         // sure what that stands for as of this writing.
-        const hj = h / nj[j - 1]
+        const hj = h / nj[j]
         console.log('midex', j, ' hj ', hj)
         // Euler starting step
         for (let i = 0; i < this.n; ++i) {
@@ -431,16 +430,16 @@ export class Solver {
           yh2[i] = y[i] + hj * dz[i]
         }
         // Explicit midpoint rule
-        const m = nj[j - 1] - 1
-        const njMid = (nj[j - 1] / 2) | 0
+        const m = nj[j] - 1
+        const njMid = (nj[j] / 2) | 0
         for (let mm = 1; mm <= m; ++mm) {
           if (this.denseOutput && mm === njMid) {
             for (let i = 0; i < this.denseComponents.length; ++i) {
-              ySafe[j - 1][i] = yh2[this.denseComponents[i]]
+              ySafe[j][i] = yh2[this.denseComponents[i]]
             }
           }
           this.copy(dy, f(x + hj * mm, yh2))
-          if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
+          if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j + 1) {
             ++iPt
             for (let i = 0; i < this.denseComponents.length; ++i) {
               fSafe[iPt - 1][i] = dy[this.denseComponents[i]]
@@ -451,7 +450,7 @@ export class Solver {
             yh1[i] = yh2[i]
             yh2[i] = ys + 2 * hj * dy[i]
           }
-          if (mm <= this.stabilityCheckCount && j <= this.stabilityCheckTableLines) {
+          if (mm <= this.stabilityCheckCount && j < this.stabilityCheckTableLines) {
             // stability check
             let del1 = 0
             for (let i = 0; i < this.n; ++i) {
@@ -472,25 +471,25 @@ export class Solver {
         }
         // final smoothing step
         this.copy(dy, f(x + h, yh2))
-        if (this.denseOutput && njMid <= 2 * j - 1) {
+        if (this.denseOutput && njMid <= 2 * j + 1) {
           ++iPt
           for (let i = 0; i < this.denseComponents.length; ++i) {
             fSafe[iPt - 1][i] = dy[this.denseComponents[i]]
           }
         }
         for (let i = 0; i < this.n; ++i) {
-          t[j - 1][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2
-          console.log('a. t[%d][%d] = %f', j - 1, i, t[j - 1][i])
+          t[j][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2
+          console.log('a. t[%d][%d] = %f', j, i, t[j][i])
         }
-        nEval += nj[j - 1]
+        nEval += nj[j]
         // polynomial extrapolation
-        if (j === 1) return true
+        if (j === 0) return true
         let fac: number
-        for (let l = j; l > 1; --l) {
-          fac = (nj[j - 1] / nj[l - 2]) ** 2 - 1
+        for (let l = j; l > 0; --l) {
+          fac = (nj[j] / nj[l - 1]) ** 2 - 1
           for (let i = 0; i < this.n; ++i) {
-            t[l - 2][i] = t[l - 1][i] + (t[l - 1][i] - t[l - 2][i]) / fac
-            console.log('b. t[%d][%d] = %f', l - 2, i, t[l - 2][i])
+            t[l - 1][i] = t[l][i] + (t[l][i] - t[l - 1][i]) / fac
+            console.log('b. t[%d][%d] = %f', l - 1, i, t[l - 1][i])
           }
         }
         err = 0
@@ -501,20 +500,20 @@ export class Solver {
           err += ((t[0][i] - t[1][i]) / scal[i]) ** 2
         }
         err = Math.sqrt(err / this.n)
-        if (err * this.uRound >= 1 || (j > 2 && err >= errOld)) {
+        if (err * this.uRound >= 1 || (j > 1 && err >= errOld)) {
           reject = true
           h *= this.stepSizeReductionFactor
           return false
         }
         errOld = Math.max(4 * err, 1)
         // compute optimal stepsizes
-        let exp0 = 1 / (2 * j - 1)
+        let exp0 = 1 / (2 * j + 1)
         let facMin = this.stepSizeFac1 ** exp0
         fac = Math.min(this.stepSizeFac2 / facMin,
           Math.max(facMin, (err / this.stepSafetyFactor1) ** exp0 / this.stepSafetyFactor2))
         fac = 1 / fac
-        hh[j - 1] = Math.min(Math.abs(h) * fac, hMax)
-        w[j - 1] = a[j - 1] / hh[j - 1]
+        hh[j] = Math.min(Math.abs(h) * fac, hMax)
+        w[j] = a[j] / hh[j]
         return true
       }
 
@@ -562,7 +561,7 @@ export class Solver {
             errfac[mu] = prod
           }
         }
-        solOut(xOld, x, y)
+        solOut(xOld, x, y, this.noDenseOutput)
       }
       let err = 0
       let errOld = 1e10
@@ -599,7 +598,7 @@ export class Solver {
               ++nStep
               for (let j = 1; j <= k; ++j) {
                 kc = j
-                if (!midex(j)) continue loop
+                if (!midex(j-1)) continue loop
                 if (j > 1 && err <= 1) {
                   state = STATE.Accept
                   continue loop
@@ -620,7 +619,7 @@ export class Solver {
             }
             kc = k - 1
             for (let j = 1; j <= kc; ++j) {
-              if (!midex(j)) {
+              if (!midex(j-1)) {
                 state = STATE.Start
                 continue loop
               }
@@ -638,7 +637,7 @@ export class Solver {
             continue
 
           case STATE.ConvergenceStep:  // label 50
-            if (!midex(k)) {
+            if (!midex(k-1)) {
               state = STATE.Start
               continue
             }
@@ -657,7 +656,7 @@ export class Solver {
               continue
             }
             kc = k + 1
-            if (!midex(kc)) state = STATE.Start
+            if (!midex(kc-1)) state = STATE.Start
             else if (err > 1) state = STATE.Reject
             else state = STATE.Accept
             continue
