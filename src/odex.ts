@@ -19,18 +19,19 @@
 
 import { assert } from "console"
 
-export interface Derivative {  // function computing the value of Y' = F(x,Y)
-  (x: number,           // input x value
-   y: number[])         // input y value)
-    : number[]          // output y' values (Array of length n)
+// Function computing the value of Y' = F(x,Y). Y is vector valued. The value y
+// the funciton is supplied with belongs to the integrator and should not be modified.
+// The value returned belongs to you and will be copied by the integrator.
+export interface Derivative {
+  (x: number, y: number[]): number[]
 }
 
-export interface OutputFunction {                    // value callback
-  (xold: number,                              // left edge of solution interval
-   x: number,                                 // right edge of solution interval (y = F(x))
-   y: number[],                               // F(x)
-   dense?: (c: number, 
-            x: number) => number): void       // dense interpolator. Valid in the range [xold, x].
+// Solution observer callback, representing the solution interval [xOld, x],
+// and reporting the integrated value y ~= f(x). If you requested dense output,
+// then dense will be a function capable of interpolating y values within the
+// solution interval. Supply the zero-based component number c to interpolate.
+export interface OutputFunction {
+  (xold: number, x: number, y: number[], dense?: (c: number, x: number) => number): void
 }
 
 export class Solver {
@@ -54,8 +55,8 @@ export class Solver {
   stepSizeFac4: number                // WORK(7)
   stepSafetyFactor1: number           // WORK(8)
   stepSafetyFactor2: number           // WORK(9)
-  relativeTolerance: number|number[]  // RTOL. Can be a scalar or vector of length N.
-  absoluteTolerance: number|number[]  // ATOL. Can be a scalar or vector of length N.
+  relativeTolerance: number | number[]  // RTOL. Can be a scalar or vector of length N.
+  absoluteTolerance: number | number[]  // ATOL. Can be a scalar or vector of length N.
   debug: boolean
 
   constructor() {
@@ -84,7 +85,7 @@ export class Solver {
   }
 
   // question: why is this legal? How to declare that a function must not return undefined in this case?
-  f(): {x:boolean} {
+  f(): { x: boolean } {
     return undefined
   }
 
@@ -112,7 +113,7 @@ export class Solver {
     }
   }
 
-  private expandToArray(x: number|number[]): number[] {
+  private expandToArray(x: number | number[]): number[] {
     // If x is an array, return it. If x is a number, return a new array, sized
     // to the dimension of the problem, filled with the number.
     if (Array.isArray(x)) {
@@ -133,7 +134,7 @@ export class Solver {
     const a = Array(n)
     switch (nSeq) {
       case 1:
-        for (let i = 0; i < n; ++i) a[i] = 2 * (i+1)
+        for (let i = 0; i < n; ++i) a[i] = 2 * (i + 1)
         break
       case 2:
         a[0] = 2
@@ -149,7 +150,7 @@ export class Solver {
         for (let i = 0; i < n; ++i) a[i] = 4 * i + 2
         break
       case 5:
-        for (let i = 0; i < n; ++i) a[i] = 4 * (i+1)
+        for (let i = 0; i < n; ++i) a[i] = 4 * (i + 1)
         break
       default:
         throw new Error('invalid stepSizeSequence selected')
@@ -159,7 +160,7 @@ export class Solver {
 
   // Generate interpolation data (TODO: document the structure of the data
   // this routine processes)
-  private interp (y: number[], imit: number): void {
+  private interp(y: number[], imit: number): void {
     // computes the coefficients of the interpolation formula
     const n = this.denseComponents.length
     let a = new Array(31)
@@ -210,9 +211,9 @@ export class Solver {
     }
   }
 
-  // Given interpolation data, produce the dense output function over the solution 
-  // segment [xOld, xOld+h]. 
-  private contex (xOld: number, h: number, imit: number, y: number[]): (c: number, x: number) => number {
+  // Given interpolation data, produce the dense output function over the solution
+  // segment [xOld, xOld+h].
+  private contex(xOld: number, h: number, imit: number, y: number[]): (c: number, x: number) => number {
     return (c: number, x: number) => {
       const nrd = this.denseComponents.length
       let i = this.denseComponents.indexOf(c)
@@ -233,10 +234,10 @@ export class Solver {
   // Integrate the differential system represented by f, from x to xEnd, with initial data y.
   // solOut, if provided, is called at each integration step.
   solve(f: Derivative,
-        x: number,
-        y0: number[],
-        xEnd: number,
-        solOut?: OutputFunction) {
+    x: number,
+    y0: number[],
+    xEnd: number,
+    solOut?: OutputFunction) {
 
     if (!Array.isArray(y0)) throw new Error('y0 must be an array sized to the dimension of the problem')
     this.n = y0.length
@@ -292,9 +293,8 @@ export class Solver {
           for (let i = 0; i < nrd; ++i) dens[kln + i] = t[0][this.denseComponents[i]]
           // compute solution at mid-point
           for (let j = 2; j <= kc; ++j) {
-            let dblenj = nj[j-1]
             for (let l = j; l >= 2; --l) {
-              let factor = (dblenj / nj[l - 2]) ** 2 - 1
+              let factor = (nj[j - 1] / nj[l - 2]) ** 2 - 1
               for (let i = 0; i < nrd; ++i) {
                 ySafe[l - 2][i] = ySafe[l - 1][i] + (ySafe[l - 1][i] - ySafe[l - 2][i]) / factor
               }
@@ -312,47 +312,46 @@ export class Solver {
             // compute kmi-th derivative at mid-point
             let kbeg = (kmi + 1) / 2 | 0
             for (let kk = kbeg; kk <= kc; ++kk) {
-              let facnj = (nj[kk-1] / 2) ** (kmi - 1)
+              let facnj = (nj[kk - 1] / 2) ** (kmi - 1)
               iPt = iPoint[kk] - 2 * kk + kmi
               for (let i = 0; i < nrd; ++i) {
-                ySafe[kk-1][i] = fSafe[iPt-1][i] * facnj  // TODO warning: if we change definition of iPoint, need to fix this
+                ySafe[kk - 1][i] = fSafe[iPt - 1][i] * facnj  // TODO warning: if we change definition of iPoint, need to fix this
               }
             }
             for (let j = kbeg + 1; j <= kc; ++j) {
-              let dblenj = nj[j-1]
               for (let l = j; l >= kbeg + 1; --l) {
-                let factor = (dblenj / nj[l - 2]) ** 2 - 1
+                let factor = (nj[j - 1] / nj[l - 2]) ** 2 - 1
                 for (let i = 0; i < nrd; ++i) {
                   ySafe[l - 2][i] = ySafe[l - 1][i] + (ySafe[l - 1][i] - ySafe[l - 2][i]) / factor
                 }
               }
             }
             krn = (kmi + 4) * nrd
-            for (let i = 0; i < nrd; ++i) dens[krn + i] = ySafe[kbeg-1][i] * h
+            for (let i = 0; i < nrd; ++i) dens[krn + i] = ySafe[kbeg - 1][i] * h
             if (kmi === kmit) continue
             // compute differences
             for (let kk = (kmi + 2) / 2 | 0; kk <= kc; ++kk) {
               let lbeg = iPoint[kk]
-              let lend = iPoint[kk-1] + kmi + 1
+              let lend = iPoint[kk - 1] + kmi + 1
               if (kmi === 1 && nSeq === 4) lend += 2
               let l: number
               for (l = lbeg; l >= lend; l -= 2) {
                 for (let i = 0; i < nrd; ++i) {
-                  fSafe[l-1][i] -= fSafe[l-3][i]
+                  fSafe[l - 1][i] -= fSafe[l - 3][i]
                 }
               }
               if (kmi === 1 && nSeq === 4) {
                 l = lend - 2
-                for (let i = 0; i < nrd; ++i) fSafe[l-1][i] -= dz[this.denseComponents[i]]
+                for (let i = 0; i < nrd; ++i) fSafe[l - 1][i] -= dz[this.denseComponents[i]]
               }
             }
             // compute differences
             for (let kk = (kmi + 2) / 2 | 0; kk <= kc; ++kk) {
               let lbeg = iPoint[kk] - 1
-              let lend = iPoint[kk-1] + kmi + 2
+              let lend = iPoint[kk - 1] + kmi + 2
               for (let l = lbeg; l >= lend; l -= 2) {
                 for (let i = 0; i < nrd; ++i) {
-                  fSafe[l-1][i] -= fSafe[l-3][i]
+                  fSafe[l - 1][i] -= fSafe[l - 3][i]
                 }
               }
             }
@@ -362,7 +361,7 @@ export class Solver {
           if (this.denseOutputErrorEstimator && kmit >= 1) {
             let errint = 0
             for (let i = 0; i < nrd; ++i) errint += (dens[(kmit + 4) * nrd + i] / scal[this.denseComponents[i]]) ** 2
-            errint = Math.sqrt(errint / nrd) * errfac[kmit-1]
+            errint = Math.sqrt(errint / nrd) * errfac[kmit - 1]
             hoptde = h / Math.max(errint ** (1 / (kmit + 4)), 0.01)
             if (errint > 10) {
               h = hoptde
@@ -372,7 +371,7 @@ export class Solver {
               return
             }
           }
-          for (let i = 1; i <= this.n; ++i) dz[i-1] = yh2[i-1]
+          for (let i = 1; i <= this.n; ++i) dz[i - 1] = yh2[i - 1]
         }
         for (let i = 0; i < this.n; ++i) y[i] = t[0][i]
         ++nAccept
@@ -399,17 +398,17 @@ export class Solver {
         // after a rejected step
         if (reject) {
           k = Math.min(kopt, kc)
-          h = posneg * Math.min(Math.abs(h), Math.abs(hh[k-1]))
+          h = posneg * Math.min(Math.abs(h), Math.abs(hh[k - 1]))
           reject = false
           return  // goto 10
         }
         if (kopt <= kc) {
-          h = hh[kopt-1]
+          h = hh[kopt - 1]
         } else {
           if (kc < k && w[kc - 1] < w[kc - 2] * this.stepSizeFac4) {
-            h = hh[kc-1] * a[kopt] / a[kc-1]
+            h = hh[kc - 1] * a[kopt] / a[kc - 1]
           } else {
-            h = hh[kc-1] * a[kopt-1] / a[kc-1]
+            h = hh[kc - 1] * a[kopt - 1] / a[kc - 1]
           }
         }
         // compute stepsize for next step
@@ -422,9 +421,9 @@ export class Solver {
         const dy = Array(this.n)
         // Computes the jth line of the extrapolation table and
         // provides an estimation of the optional stepsize. Returns
-        // false if the Fortran condition "ATOV" is true. Not quite 
+        // false if the Fortran condition "ATOV" is true. Not quite
         // sure what that stands for as of this writing.
-        const hj = h / nj[j-1]
+        const hj = h / nj[j - 1]
         console.log('midex', j, ' hj ', hj)
         // Euler starting step
         for (let i = 0; i < this.n; ++i) {
@@ -432,19 +431,19 @@ export class Solver {
           yh2[i] = y[i] + hj * dz[i]
         }
         // Explicit midpoint rule
-        const m = nj[j-1] - 1
-        const njMid = (nj[j-1] / 2) | 0
+        const m = nj[j - 1] - 1
+        const njMid = (nj[j - 1] / 2) | 0
         for (let mm = 1; mm <= m; ++mm) {
           if (this.denseOutput && mm === njMid) {
             for (let i = 0; i < this.denseComponents.length; ++i) {
-              ySafe[j-1][i] = yh2[this.denseComponents[i]]
+              ySafe[j - 1][i] = yh2[this.denseComponents[i]]
             }
           }
           this.copy(dy, f(x + hj * mm, yh2))
           if (this.denseOutput && Math.abs(mm - njMid) <= 2 * j - 1) {
             ++iPt
             for (let i = 0; i < this.denseComponents.length; ++i) {
-              fSafe[iPt-1][i] = dy[this.denseComponents[i]]
+              fSafe[iPt - 1][i] = dy[this.denseComponents[i]]
             }
           }
           for (let i = 0; i < this.n; ++i) {
@@ -476,23 +475,22 @@ export class Solver {
         if (this.denseOutput && njMid <= 2 * j - 1) {
           ++iPt
           for (let i = 0; i < this.denseComponents.length; ++i) {
-            fSafe[iPt-1][i] = dy[this.denseComponents[i]]
+            fSafe[iPt - 1][i] = dy[this.denseComponents[i]]
           }
         }
         for (let i = 0; i < this.n; ++i) {
-          t[j-1][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2
-          console.log('a. t[%d][%d] = %f', j-1, i, t[j-1][i])
+          t[j - 1][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2
+          console.log('a. t[%d][%d] = %f', j - 1, i, t[j - 1][i])
         }
-        nEval += nj[j-1]
+        nEval += nj[j - 1]
         // polynomial extrapolation
         if (j === 1) return true
-        const dblenj = nj[j-1]
         let fac: number
         for (let l = j; l > 1; --l) {
-          fac = (dblenj / nj[l - 2]) ** 2 - 1
+          fac = (nj[j - 1] / nj[l - 2]) ** 2 - 1
           for (let i = 0; i < this.n; ++i) {
-            t[l - 2][i] = t[l - 1][i] + (t[l- 1][i] - t[l - 2][i]) / fac
-            console.log('b. t[%d][%d] = %f', l-2, i, t[l-2][i])
+            t[l - 2][i] = t[l - 1][i] + (t[l - 1][i] - t[l - 2][i]) / fac
+            console.log('b. t[%d][%d] = %f', l - 2, i, t[l - 2][i])
           }
         }
         err = 0
@@ -515,8 +513,8 @@ export class Solver {
         fac = Math.min(this.stepSizeFac2 / facMin,
           Math.max(facMin, (err / this.stepSafetyFactor1) ** exp0 / this.stepSafetyFactor2))
         fac = 1 / fac
-        hh[j-1] = Math.min(Math.abs(h) * fac, hMax)
-        w[j-1] = a[j-1] / hh[j-1]
+        hh[j - 1] = Math.min(Math.abs(h) * fac, hMax)
+        w[j - 1] = a[j - 1] / hh[j - 1]
         return true
       }
 
@@ -553,14 +551,14 @@ export class Solver {
         if (this.denseOutput) {
           iPoint[0] = 0
           for (let i = 0; i < this.maxExtrapolationColumns; ++i) {
-            let njAdd = 4 * (i+1) - 2
+            let njAdd = 4 * (i + 1) - 2
             if (nj[i] > njAdd) ++njAdd
-            iPoint[i+1] = iPoint[i] + njAdd
+            iPoint[i + 1] = iPoint[i] + njAdd
           }
           for (let mu = 0; mu < 2 * this.maxExtrapolationColumns; ++mu) {
             let errx = Math.sqrt((mu + 1) / (mu + 5)) * 0.5
             let prod = (1 / (mu + 5)) ** 2
-            for (let j = 1; j <= mu+1; ++j) prod *= errx / j
+            for (let j = 1; j <= mu + 1; ++j) prod *= errx / j
             errfac[mu] = prod
           }
         }
@@ -633,7 +631,7 @@ export class Solver {
             } else {
               if (err <= 1) {
                 state = STATE.Accept
-              } else if (err > ((nj[k] * nj[k-1]) / 4) ** 2) {
+              } else if (err > ((nj[k] * nj[k - 1]) / 4) ** 2) {
                 state = STATE.Reject
               } else state = STATE.ConvergenceStep
             }
@@ -673,7 +671,7 @@ export class Solver {
             k = Math.min(k, kc, this.maxExtrapolationColumns - 1)
             if (k > 2 && w[k - 1] < w[k] * this.stepSizeFac3) k -= 1
             ++nReject
-            h = posneg * hh[k-1]
+            h = posneg * hh[k - 1]
             reject = true
             state = STATE.BasicIntegrationStep
         }
