@@ -157,6 +157,79 @@ export class Solver {
     return a
   }
 
+  // Generate interpolation data (TODO: document the structure of the data
+  // this routine processes)
+  private interp (y: number[], imit: number): void {
+    // computes the coefficients of the interpolation formula
+    const n = this.denseComponents.length
+    let a = new Array(31)
+    // begin with Hermite interpolation
+    for (let i = 0; i < this.denseComponents.length; ++i) {
+      const y0 = y[i]
+      const y1 = y[2 * n + i]
+      const yp0 = y[n + i]
+      const yp1 = y[3 * n + i]
+      const yDiff = y1 - y0
+      const aspl = -yp1 + yDiff
+      const bspl = yp0 - yDiff
+      y[n + i] = yDiff
+      y[2 * n + i] = aspl
+      y[3 * n + i] = bspl
+      if (imit < 0) continue
+      // compute the derivatives of Hermite at midpoint
+      const ph0 = (y0 + y1) * 0.5 + 0.125 * (aspl + bspl)
+      const ph1 = yDiff + (aspl - bspl) * 0.25
+      const ph2 = -(yp0 - yp1)
+      const ph3 = 6 * (bspl - aspl)
+      // compute the further coefficients
+      if (imit >= 1) {
+        a[1] = 16 * (y[5 * n + i] - ph1)
+        if (imit >= 3) {
+          a[3] = 16 * (y[7 * n + i] - ph3 + 3 * a[1])
+          if (imit >= 5) {
+            for (let im = 5; im <= imit; im += 2) {
+              let fac1 = im * (im - 1) / 2
+              let fac2 = fac1 * (im - 2) * (im - 3) * 2
+              a[im] = 16 * (y[(im + 4) * n + i] + fac1 * a[im - 2] - fac2 * a[im - 4])
+            }
+          }
+        }
+      }
+      a[0] = (y[4 * n + i] - ph0) * 16
+      if (imit >= 2) {
+        a[2] = (y[n * 6 + i] - ph2 + a[0]) * 16
+        if (imit >= 4) {
+          for (let im = 4; im <= imit; im += 2) {
+            let fac1 = im * (im - 1) / 2
+            let fac2 = im * (im - 1) * (im - 2) * (im - 3)
+            a[im] = (y[n * (im + 4) + i] + a[im - 2] * fac1 - a[im - 4] * fac2) * 16
+          }
+        }
+      }
+      for (let im = 0; im <= imit; ++im) y[n * (im + 4) + i] = a[im]
+    }
+  }
+
+  // Given interpolation data, produce the dense output function over the solution 
+  // segment [xOld, xOld+h]. 
+  private contex (xOld: number, h: number, imit: number, y: number[]): (c: number, x: number) => number {
+    return (c: number, x: number) => {
+      const nrd = this.denseComponents.length
+      let i = this.denseComponents.indexOf(c)
+      if (i < 0) throw new Error('no dense output available for component ' + c)
+      const theta = (x - xOld) / h
+      const theta1 = 1 - theta
+      const phthet = y[i] + theta * (y[nrd + i] + theta1 * (y[2 * nrd + i] * theta + y[3 * nrd + i] * theta1))
+      if (imit < 0) return phthet
+      const thetah = theta - 0.5
+      let ret = y[nrd * (imit + 4) + i]
+      for (let im = imit; im >= 1; --im) {
+        ret = y[nrd * (im + 3) + i] + ret * thetah / im
+      }
+      return phthet + (theta * theta1) ** 2 * ret
+    }
+  }
+
   // Integrate the differential system represented by f, from x to xEnd, with initial data y.
   // solOut, if provided, is called at each integration step.
   solve(f: Derivative,
@@ -165,6 +238,7 @@ export class Solver {
         xEnd: number,
         solOut?: OutputFunction) {
 
+    if (!Array.isArray(y0)) throw new Error('y0 must be an array sized to the dimension of the problem')
     this.n = y0.length
     let y = y0.slice()
     let dz = Array(this.n)
@@ -283,7 +357,7 @@ export class Solver {
               }
             }
           }
-          interp(dens, kmit)
+          this.interp(dens, kmit)
           // estimation of interpolation error
           if (this.denseOutputErrorEstimator && kmit >= 1) {
             let errint = 0
@@ -304,7 +378,7 @@ export class Solver {
         ++nAccept
         if (solOut) {
           // If denseOutput, we also want to supply the dense closure.
-          solOut(xOld, x, y, this.denseOutput && contex(xOld, h, kmit, dens))
+          solOut(xOld, x, y, this.denseOutput && this.contex(xOld, h, kmit, dens))
         }
         // compute optimal order
         let kopt: number
@@ -446,77 +520,6 @@ export class Solver {
         return true
       }
 
-      const interp = (y: number[], imit: number) => {
-        // computes the coefficients of the interpolation formula
-        const n = this.denseComponents.length
-        let a = new Array(31)
-        // begin with Hermite interpolation
-        for (let i = 0; i < this.denseComponents.length; ++i) {
-          const y0 = y[i]
-          const y1 = y[2 * n + i]
-          const yp0 = y[n + i]
-          const yp1 = y[3 * n + i]
-          const yDiff = y1 - y0
-          const aspl = -yp1 + yDiff
-          const bspl = yp0 - yDiff
-          y[n + i] = yDiff
-          y[2 * n + i] = aspl
-          y[3 * n + i] = bspl
-          if (imit < 0) continue
-          // compute the derivatives of Hermite at midpoint
-          const ph0 = (y0 + y1) * 0.5 + 0.125 * (aspl + bspl)
-          const ph1 = yDiff + (aspl - bspl) * 0.25
-          const ph2 = -(yp0 - yp1)
-          const ph3 = 6 * (bspl - aspl)
-          // compute the further coefficients
-          if (imit >= 1) {
-            a[1] = 16 * (y[5 * n + i] - ph1)
-            if (imit >= 3) {
-              a[3] = 16 * (y[7 * n + i] - ph3 + 3 * a[1])
-              if (imit >= 5) {
-                for (let im = 5; im <= imit; im += 2) {
-                  let fac1 = im * (im - 1) / 2
-                  let fac2 = fac1 * (im - 2) * (im - 3) * 2
-                  a[im] = 16 * (y[(im + 4) * n + i] + fac1 * a[im - 2] - fac2 * a[im - 4])
-                }
-              }
-            }
-          }
-          a[0] = (y[4 * n + i] - ph0) * 16
-          if (imit >= 2) {
-            a[2] = (y[n * 6 + i] - ph2 + a[0]) * 16
-            if (imit >= 4) {
-              for (let im = 4; im <= imit; im += 2) {
-                let fac1 = im * (im - 1) / 2
-                let fac2 = im * (im - 1) * (im - 2) * (im - 3)
-                a[im] = (y[n * (im + 4) + i] + a[im - 2] * fac1 - a[im - 4] * fac2) * 16
-              }
-            }
-          }
-          for (let im = 0; im <= imit; ++im) y[n * (im + 4) + i] = a[im]
-        }
-      }
-
-      const contex = (xOld: number,
-                      h: number,
-                      imit: number,
-                      y: number[]) => {
-        return (c: number, x: number) => {
-          const nrd = this.denseComponents.length
-          let i = this.denseComponents.indexOf(c)
-          if (i < 0) throw new Error('no dense output available for component ' + c)
-          const theta = (x - xOld) / h
-          const theta1 = 1 - theta
-          const phthet = y[i] + theta * (y[nrd + i] + theta1 * (y[2 * nrd + i] * theta + y[3 * nrd + i] * theta1))
-          if (imit < 0) return phthet
-          const thetah = theta - 0.5
-          let ret = y[nrd * (imit + 4) + i]
-          for (let im = imit; im >= 1; --im) {
-            ret = y[nrd * (im + 3) + i] + ret * thetah / im
-          }
-          return phthet + (theta * theta1) ** 2 * ret
-        }
-      }
 
       // preparation
       const ySafe = Array(this.maxExtrapolationColumns)
