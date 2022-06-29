@@ -404,7 +404,7 @@ class Solver {
                 const dy = Array(this.n);
                 const yh1 = Array(this.n);
                 const yh2 = Array(this.n);
-                // Computes the jth line of the extrapolation table and
+                // Computes the jth line of the extrapolation table (0-based) and
                 // provides an estimation of the optional stepsize. Returns
                 // false if the Fortran condition "ATOV" is true. Not quite
                 // sure what that stands for as of this writing.

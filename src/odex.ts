@@ -31,7 +31,7 @@ export interface Derivative {
 // then dense will be a function capable of interpolating y values within the
 // solution interval. Supply the zero-based component number c to interpolate.
 export interface OutputFunction {
-  (xold: number, x: number, y: number[], dense: (c: number, x: number) => number): void
+  (xOld: number, x: number, y: number[], dense: (c: number, x: number) => number): void
 }
 
 export class Solver {
@@ -418,7 +418,7 @@ export class Solver {
         const dy = Array(this.n)
         const yh1 = Array(this.n)
         const yh2 = Array(this.n)
-        // Computes the jth line of the extrapolation table and
+        // Computes the jth line of the extrapolation table (0-based) and
         // provides an estimation of the optional stepsize. Returns
         // false if the Fortran condition "ATOV" is true. Not quite
         // sure what that stands for as of this writing.
