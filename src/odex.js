@@ -54,11 +54,9 @@ class Solver {
                 // default empty array.
                 this.options.denseComponents = [];
                 for (let i = 0; i < this.n; ++i) {
-                    console.log('pushing', i);
                     this.options.denseComponents.push(i);
                 }
             }
-            console.log('dc', this.options.denseComponents);
             for (let c of this.options.denseComponents) {
                 if (c < 0 || c >= this.n)
                     throw new Error('illegal dense component index ' + c);
@@ -307,7 +305,7 @@ class Solver {
         }
         for (let i = 0; i < this.n; ++i) {
             this.t[j][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2;
-            console.log('a. t[%d][%d] = %f', j, i, this.t[j][i]);
+            // console.log('a. t[%d][%d] = %f', j, i, this.t[j][i])
         }
         this.nEval += this.nj[j];
         // polynomial extrapolation
@@ -318,7 +316,7 @@ class Solver {
             fac = Math.pow((this.nj[j] / this.nj[l - 1]), 2) - 1;
             for (let i = 0; i < this.n; ++i) {
                 this.t[l - 1][i] = this.t[l][i] + (this.t[l][i] - this.t[l - 1][i]) / fac;
-                console.log('b. t[%d][%d] = %f', l - 1, i, this.t[l - 1][i]);
+                // console.log('b. t[%d][%d] = %f', l - 1, i, this.t[l - 1][i])
             }
         }
         this.err = 0;
@@ -520,6 +518,7 @@ class Solver {
                 this.scal[i] = this.aTol[i] + this.rTol[i] + Math.abs(y[i]);
             }
             // Initial preparations
+            // TODO: some of this might be movable to the constructor
             const posneg = xEnd - x >= 0 ? 1 : -1;
             let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)));
             let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4);

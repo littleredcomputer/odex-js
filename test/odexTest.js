@@ -435,5 +435,17 @@ describe('Odex', () => {
             }, /denseOutput/, 'expected recommendation to use denseOutput');
         });
     });
+    describe('Solver object can be restarted', () => {
+        const s = NewSolver(trig, 2);
+        for (let theta = 0.0; theta < 2 * Math.PI; theta += 0.2) {
+            // Instead of using grid, wastefully restart the inegration for
+            // each theta value
+            it('works at grid point ' + theta, () => {
+                let value = s.solve(0, [1, 0], theta).y;
+                assert(Math.abs(value[0] - Math.cos(theta)) < 1e-4);
+                assert(Math.abs(value[1] + Math.sin(theta)) < 1e-4);
+            });
+        }
+    });
 });
 //# sourceMappingURL=odexTest.js.map

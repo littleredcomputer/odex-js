@@ -32,29 +32,28 @@ export type Derivative = (x: number, y: number[]) => number[]
 export type OutputFunction = (xOld: number, x: number, y: number[], dense: (c: number, x: number) => number) => void
 
 export type Options = {
-  uRound: number                      // WORK(1), machine epsilon. (WORK, IWORK are references to odex.f)
-  maxSteps: number                    // IWORK(1), positive integer
-  initialStepSize: number             // H
-  maxStepSize: number                 // WORK(2), maximal step size, default xEnd - x
-  maxExtrapolationColumns: number     // IWORK(2), KM, positive integer
-  stepSizeSequence: number            // IWORK(3), in [1..5]
-  stabilityCheckCount: number         // IWORK(4), in
-  stabilityCheckTableLines: number    // IWORK(5), positive integer
-  denseOutput: boolean                // IOUT >= 2, true means dense output interpolator provided to solOut
-  denseOutputErrorEstimator: boolean  // IWORK(6), reversed sense from the FORTRAN code
-  denseComponents: number[]           // IWORK(8) & IWORK(21,...), components for which dense output is required
-  interpolationFormulaDegree: number  // IWORK(7), µ = 2 * k - interpolationFormulaDegree + 1 [1..6], default 4
-  stepSizeReductionFactor: number     // WORK(3), default 0.5
-  stepSizeFac1: number                // WORK(4)
-  stepSizeFac2: number                // WORK(5)
-  stepSizeFac3: number                // WORK(6)
-  stepSizeFac4: number                // WORK(7)
-  stepSafetyFactor1: number           // WORK(8)
-  stepSafetyFactor2: number           // WORK(9)
-  relativeTolerance: number | number[]  // RTOL. Can be a scalar or vector of length N.
-  absoluteTolerance: number | number[]  // ATOL. Can be a scalar or vector of length N.
+  uRound: number                       // WORK(1), machine epsilon. (WORK, IWORK are references to odex.f)
+  maxSteps: number                     // IWORK(1), positive integer
+  initialStepSize: number              // H
+  maxStepSize: number                  // WORK(2), maximal step size, default xEnd - x
+  maxExtrapolationColumns: number      // IWORK(2), KM, positive integer
+  stepSizeSequence: number             // IWORK(3), in [1..5]
+  stabilityCheckCount: number          // IWORK(4), in
+  stabilityCheckTableLines: number     // IWORK(5), positive integer
+  denseOutput: boolean                 // IOUT >= 2, true means dense output interpolator provided to solOut
+  denseOutputErrorEstimator: boolean   // IWORK(6), reversed sense from the FORTRAN code
+  denseComponents: number[]            // IWORK(8) & IWORK(21,...), components for which dense output is required
+  interpolationFormulaDegree: number   // IWORK(7), µ = 2 * k - interpolationFormulaDegree + 1 [1..6], default 4
+  stepSizeReductionFactor: number      // WORK(3), default 0.5
+  stepSizeFac1: number                 // WORK(4)
+  stepSizeFac2: number                 // WORK(5)
+  stepSizeFac3: number                 // WORK(6)
+  stepSizeFac4: number                 // WORK(7)
+  stepSafetyFactor1: number            // WORK(8)
+  stepSafetyFactor2: number            // WORK(9)
+  relativeTolerance: number | number[] // RTOL. Can be a scalar or vector of length N.
+  absoluteTolerance: number | number[] // ATOL. Can be a scalar or vector of length N.
   debug: boolean
-  // TODO: complete this and wrap it up in an options pattern
 }
 
 export class Solver {
@@ -62,7 +61,7 @@ export class Solver {
     uRound: 2.3e-16,
     maxSteps: 10000,
     initialStepSize: 1e-4,
-    maxStepSize: 0,                   // defaults to integration interval if zero
+    maxStepSize: 0,                    // defaults to integration interval if zero
     maxExtrapolationColumns: 9,
     stepSizeSequence: 0,
     stabilityCheckCount: 1,
@@ -85,22 +84,15 @@ export class Solver {
 
   private options: Options
 
-  // TODO: make the constructor accept an options object
-  // as well as something that points to the dimension of
-  // the problem. Maybe include a reset method before solve?
-  // Some way to lock down these items with a sane interface
+  private n: number                    // dimension of the system
+  private hMax: number = 0             // maximum step size chosen for this problem
+  private nEval: number = 0            // number of function evaluations done
+  private nj: number[]                 // number of subdivisions at j-th level of tableau
+  private a: number[]                  // number of function evaluations required to compute T_jj
+  private hh: number[]                 // step size at interpolation level
+  private w: number[]                  // work per unit step at interpolation level
+  private f: Derivative                // function to integrate
 
-
-  private n: number              // dimension of the system
-  private hMax: number = 0            // maximum step size chosen for this problem
-  private nEval: number = 0           // number of function evaluations done
-  private nj: number[]           // number of subdivisions at j-th level of tableau
-  private a: number[]            // number of function evaluations required to compute T_jj
-  private hh: number[]           // step size at interpolation level
-  private w: number[]            // work per unit step at interpolation level
-  private f: Derivative               // function to integrate
-
-  // TODO: init in constructor
   private aTol: number[]
   private rTol: number[]
 
@@ -123,10 +115,6 @@ export class Solver {
   // Maybe the array should have one more dimension.
   private iPt: number = 0
 
-
-
-
-
   constructor(f: Derivative, n: number, options: Partial<Options> = {}) {
     this.f = f
     this.n = n
@@ -144,11 +132,9 @@ export class Solver {
         // default empty array.
         this.options.denseComponents = []
         for (let i = 0; i < this.n; ++i) {
-          console.log('pushing', i)
           this.options.denseComponents.push(i)
         }
       }
-      console.log('dc', this.options.denseComponents)
       for (let c of this.options.denseComponents) {
         if (c < 0 || c >= this.n) throw new Error('illegal dense component index ' + c)
       }
@@ -394,7 +380,7 @@ export class Solver {
     }
     for (let i = 0; i < this.n; ++i) {
       this.t[j][i] = (yh1[i] + yh2[i] + hj * dy[i]) / 2
-      console.log('a. t[%d][%d] = %f', j, i, this.t[j][i])
+      // console.log('a. t[%d][%d] = %f', j, i, this.t[j][i])
     }
     this.nEval += this.nj[j]
     // polynomial extrapolation
@@ -404,7 +390,7 @@ export class Solver {
       fac = (this.nj[j] / this.nj[l - 1]) ** 2 - 1
       for (let i = 0; i < this.n; ++i) {
         this.t[l - 1][i] = this.t[l][i] + (this.t[l][i] - this.t[l - 1][i]) / fac
-        console.log('b. t[%d][%d] = %f', l - 1, i, this.t[l - 1][i])
+        // console.log('b. t[%d][%d] = %f', l - 1, i, this.t[l - 1][i])
       }
     }
     this.err = 0
@@ -596,6 +582,7 @@ export class Solver {
       }
 
       // Initial preparations
+      // TODO: some of this might be movable to the constructor
       const posneg = xEnd - x >= 0 ? 1 : -1
       let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)))
       let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4)
