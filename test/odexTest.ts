@@ -17,14 +17,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import {Solver, Derivative} from '../src/odex'
+import {Solver, Derivative, Options} from '../src/odex'
 import assert = require('assert')
 
 describe('Odex', () => {
-  let NewSolver = (f: Derivative, n: number) => {
-    let s = new Solver(f, n)
-    s.maxSteps = 200
-      return s
+  let NewSolver = (f: Derivative, n: number, o?: Partial<Options>) => {
+    return new Solver(f, n, Object.assign({maxSteps: 200}, o))
   }
 
   let airy: Derivative = (x: number, y: number[]) => [y[1], x * y[0]]
@@ -61,20 +59,25 @@ describe('Odex', () => {
     it('throws for a bad Type', () => assert.throws(() => Solver.stepSizeSequence(0, 8), Error))
   })
   describe('Van der Pol equation w/o dense output', () => {
-    const s = NewSolver(vanDerPol(0.1), 2)
     const tol = 1e-5
-    s.absoluteTolerance = s.relativeTolerance = tol
-    s.initialStepSize = 0.01
-    s.maxSteps = 50
+    const s = NewSolver(vanDerPol(0.1), 2, {
+      absoluteTolerance: tol,
+      relativeTolerance: tol,
+      initialStepSize: 0.01,
+      maxSteps: 50,
+    })
+
     const y0 = [2, 0]
     const {y: [y1, y1p]} = s.solve(0, y0, 2)
     it('worked for y', () => assert(Math.abs(y1 + 1.58184) < tol * 10))
     it(`worked for y'`, () => assert(Math.abs(y1p - 0.978449) < tol * 10))
   })
   describe(`y' = y, (exp)`, () => {
-    let s = NewSolver((x, y) => y, 1)
     const tol = 1e-8
-    s.absoluteTolerance = s.relativeTolerance = tol
+    let s = NewSolver((x, y) => y, 1, {
+      absoluteTolerance: tol,
+      relativeTolerance: tol
+    })
     let y0 = [1]
     let {y: [y1]} = s.solve(0, y0, 1)
     it('worked for y', () => assert(Math.abs(y1 - Math.exp(1)) < tol * 10))
@@ -100,8 +103,9 @@ describe('Odex', () => {
     it(`worked for y' (backwards)`, () => assert(Math.abs(cb.y[1] - Math.cos(-10)) < 1e-4))
   })
   describe('Airy equation y" = xy', () => {
-    let s = NewSolver(airy, 2)
-    s.initialStepSize = 1e-4
+    let s = NewSolver(airy, 2, {
+      initialStepSize: 1e-4
+    })
     let y0 = [0.3550280539, -0.2588194038]
     let a = s.solve(0, y0, 1)
     it('1st kind: works for y', () => assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5))
@@ -114,23 +118,28 @@ describe('Odex', () => {
     it(`2nd kind: works for y'`, () => assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5))
   })
   describe('Bessel equation x^2 y" + x y\' + (x^2-a^2) y = 0', () => {
-    let s = NewSolver(bessel(1), 2)
+    let s = NewSolver(bessel(1), 2, {
+      initialStepSize: 1e-6
+    })
     let y1 = [0.4400505857, 0.3251471008]
     let y2 = s.solve(1, y1, 2)
     it('y', () => assert(Math.abs(y2.y[0] - 0.5767248078) < 1e-5))
     it(`y"`, () => assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5))
-    s.initialStepSize = 1e-6
     let y3 = s.solve(1, y1, 2)
     it('y (small step size)', () => assert(Math.abs(y3.y[0] - 0.5767248078) < 1e-6))
     it(`y' (small step size)`, () => assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6))
-    s.absoluteTolerance = s.relativeTolerance = 1e-12
+    s = NewSolver(bessel(1), 2, {
+      absoluteTolerance: 1e-12,
+      relativeTolerance: 1e-12
+    })
     let y4 = s.solve(1, y1, 2)
     it('y (low tolerance)', () => assert(Math.abs(y4.y[0] - 0.5767248078) < 1e-10))
     it('y\' (low tolerance)', () => assert(Math.abs(y4.y[1] + 0.06447162474) < 1e-10))
   })
   describe('max step control', () => {
-    let s = NewSolver(vanDerPol(0.1), 2)
-    s.maxSteps = 2
+    let s = NewSolver(vanDerPol(0.1), 2, {
+      maxSteps: 2
+    })
     it ('reports correct error', () => assert.throws(() => {
       s.solve(0, [2, 0], 10)
     }, Error('maximum allowed steps exceeded: 2')))
@@ -148,16 +157,18 @@ describe('Odex', () => {
     })
   })
   describe('cosine (dense output)', () => {
-    let s = NewSolver(trig, 2)
-    s.denseOutput = true
+    let s = NewSolver(trig, 2, {
+      denseOutput: true
+    })
     let o = s.solve(0, [1, 0], 2 * Math.PI, () => {
       // console.log('dense cos', Math.abs(y[0]-Math.cos(x)))
     })
   })
   describe('cosine (dense output, no error estimation)', () => {
-    let s = NewSolver(trig, 2)
-    s.denseOutput = true
-    s.denseOutputErrorEstimator = false
+    let s = NewSolver(trig, 2, {
+      denseOutput: true,
+      denseOutputErrorEstimator: false
+    })
     let o = s.solve(0, [1, 0], 2 * Math.PI, () => {
       // console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)))
     })
@@ -166,8 +177,9 @@ describe('Odex', () => {
     it('had no rejection steps', () => assert(o.nReject === 0))
   })
   describe('cosine (dense output, grid evaluation)', () => {
-    let s = NewSolver(trig, 2)
-    s.denseOutput = true
+    let s = NewSolver(trig, 2, {
+      denseOutput: true
+    })
     const grid = 0.1
     let current = 0.0
     let o = s.solve(0, [1, 0], Math.PI / 2, (xOld, x, y, f) => {
@@ -187,8 +199,9 @@ describe('Odex', () => {
     it('had no rejection steps', () => assert(o.nReject === 0))
   })
   describe('cosine (observer, long range)', () => {
-    let s = NewSolver(trig, 2)
-    s.denseOutput = false
+    let s = NewSolver(trig, 2, {
+      denseOutput: false
+    })
     let o = s.solve(0, [1, 0], 16 * Math.PI, (xOld, x, y) => {
       const value = y[0]
       it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.cos(x)) < 2e-4))
@@ -199,55 +212,41 @@ describe('Odex', () => {
   })
   describe('bogus parameters', () => {
     it('throws if maxSteps is <= 0', () => {
-      let s = NewSolver(trig, 2)
-      s.maxSteps = -2
       assert.throws(() => {
-        s.solve(0, [1, 0], 1)
+        NewSolver(trig, 2, {
+          maxSteps: -2
+        })
       }, Error)
     })
     it('throws if maxExtrapolationColumns is <= 2', () => {
-      let s = NewSolver(trig, 2)
-      s.maxExtrapolationColumns = 1
       assert.throws(() => {
-        s.solve(0, [1, 0], 1)
+        NewSolver(trig, 2, {
+          maxExtrapolationColumns: 1
+        })
       }, Error)
     })
     it('throws for dense-output-incompatible step sequence', () => {
-      let s = NewSolver(trig, 2)
-      s.stepSizeSequence = 1
-      s.denseOutput = true
       assert.throws(() => {
-        s.solve(0, [1, 0], 1)
+        NewSolver(trig, 2, {
+          stepSizeSequence: 1,
+          denseOutput: true
+        })
       }, Error)
     })
     it('throws when dense output is requested but no observer function is given', () => {
-      let s = NewSolver(trig, 2)
-      s.denseOutput = true
+      let s = NewSolver(trig, 2, { denseOutput: true })
       assert.throws(() => {
         s.solve(0, [1, 0], 1)
       }, Error)
     })
     it('throws for bad interpolation formula degree', () => {
-      let s = NewSolver(trig, 2)
-      s.interpolationFormulaDegree = 99
-      assert.throws(() => {
-        s.solve(0, [1, 0], 1)
-      }, Error)
+      assert.throws(() => { NewSolver(trig, 2, { interpolationFormulaDegree: 99 }) }, Error)
     })
     it('throws for bad uRound', () => {
-      let s = NewSolver(trig, 2)
-      s.uRound = Math.PI
-      assert.throws(() => {
-        s.solve(0, [1, 0], 1)
-      }, Error)
+      assert.throws(() => { NewSolver(trig, 2, { uRound: Math.PI }) }, Error)
     })
     it('throws for bad dense component', () => {
-      let s = NewSolver(trig, 2)
-      s.denseOutput = true
-      s.denseComponents = [5]
-      assert.throws(() => {
-        s.solve(0, [1, 0], 1, () => undefined)
-      }, Error)
+      assert.throws(() => { NewSolver(trig, 2, { denseOutput: true, denseComponents: [5] }) }, Error)
     })
     it('throws when dense interpolator called but denseOutput is false', () => {
       assert.throws(() => {
@@ -258,9 +257,10 @@ describe('Odex', () => {
     })
   })
   describe('requesting specific dense output component', () => {
-    let s = NewSolver(trig, 2)
-    s.denseComponents = [1]  // we only want y', e.g., -sin(x), densely output
-    s.denseOutput = true
+    let s = NewSolver(trig, 2, {
+      denseComponents: [1],  // we only want y', e.g., -sin(x), densely output
+      denseOutput: true
+    })
     let component = (k: number) => {
       let diff = 1e10
       s.solve(0, [1, 0], 1, (xOld, x, y, f) => {
@@ -302,8 +302,7 @@ describe('Odex', () => {
       [1.64389, 0.319706],
       [1.70715, 0.672033]
     ]
-    let s = NewSolver(lotkaVolterra(2 / 3, 4 / 3, 1, 1), 2)
-    s.denseOutput = true
+    let s = NewSolver(lotkaVolterra(2 / 3, 4 / 3, 1, 1), 2, {denseOutput: true})
     let i = 0
     s.solve(0, [1, 1], 15, s.grid(1, (x, y) => {
       let diff = Math.abs(y[0] - data[i][0])
@@ -315,9 +314,11 @@ describe('Odex', () => {
     // Here we supply a differential equation designed to test the limits.
     // Let y = sin(1/x). Then y' = -cos(1/x) / x^2.
     const left = 0.005
-    let s = NewSolver((x, y) => [-Math.cos(1 / x) / (x * x)], 1)
-    s.denseOutput = true
-    s.absoluteTolerance = s.relativeTolerance = [1e-6]
+    let s = NewSolver((x, y) => [-Math.cos(1 / x) / (x * x)], 1, {
+      denseOutput: true,
+      absoluteTolerance: [1e-6],
+      relativeTolerance: [1e-6]
+    })
     let o = s.solve(left, [Math.sin(1 / left)], 2, s.grid(0.1, (x, y) => {
       let diff = Math.abs(y[0] - Math.sin(1 / x))
       it('works for y at grid point ' + x, () => assert(diff < 1e-4))
@@ -340,10 +341,12 @@ describe('Odex', () => {
     }
     const y0 = [0.994, 0, 0, -2.00158510637908252240537862224]
     const o = 17.0652165601579625588917206249
-    let s = NewSolver(arenstorf, 4)
-    s.denseOutput = true
-    s.absoluteTolerance = s.relativeTolerance = 1e-13
-    s.maxSteps = 450
+    let s = NewSolver(arenstorf, 4, {
+      denseOutput: true,
+      absoluteTolerance: 1e-13,
+      relativeTolerance: 1e-13,
+      maxSteps: 450,
+    })
     const numOrbits = 3
     let result = s.solve(0, y0, numOrbits*o, s.grid(o, (x, y) => {
       // Compute the relative error vs. y0
@@ -421,9 +424,11 @@ describe('Odex', () => {
         [49, 0.5697195275373672, 4.7002517839869755],
         [50, 1.8598568626985814, 3.514424192705786],
     ]
-    let s = NewSolver(brusselator, 2)
-    s.denseOutput = true
-    s.absoluteTolerance = s.relativeTolerance = 1e-8
+    let s = NewSolver(brusselator, 2, {
+      denseOutput: true,
+      absoluteTolerance: 1e-8,
+      relativeTolerance:1e-8
+    })
     s.solve(0, [1.5, 3], 50, s.grid(1, (x, y) => {
       const value = y.slice()
       it('agrees at grid point ' + x + ' : ' + value, () => {
