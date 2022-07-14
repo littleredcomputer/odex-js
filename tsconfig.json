@@ -4,6 +4,7 @@
     "target": "es2015",
     "noImplicitAny": true,
     "strictNullChecks": true,
+    "strictPropertyInitialization": true,
     "sourceMap": true
   },
   "files": [
