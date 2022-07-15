@@ -429,9 +429,7 @@ describe('Odex', () => {
         it('throws when you use grid without denseOutput', () => {
             let s = NewSolver((x, y) => y, 1);
             assert.throws(() => {
-                s.solve(0, [1], 1, s.grid(0.1, (x, y) => {
-                    console.log(x, y);
-                }));
+                s.solve(0, [1], 1, s.grid(0.1, console.log));
             }, /denseOutput/, 'expected recommendation to use denseOutput');
         });
     });
