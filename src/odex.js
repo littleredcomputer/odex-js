@@ -500,6 +500,7 @@ class Solver {
     // Integrate the differential system represented by f, from x to xEnd, with initial data y.
     // solOut, if provided, is called at each integration step.
     solve(x, y0, xEnd, solOut) {
+        var _a, _b;
         if (!Array.isArray(y0) || y0.length != this.n)
             throw new Error('y0 must be an array sized to the dimension of the problem');
         let y = y0.slice();
@@ -509,183 +510,179 @@ class Solver {
         this.hMax = Math.abs(this.options.maxStepSize || xEnd - x);
         this.nStep = this.nAccept = this.nReject = 0;
         this.posneg = xEnd - x >= 0 ? 1 : -1;
-        let odxcor = () => {
-            var _a, _b;
-            // Initial Scaling
-            for (let i = 0; i < this.n; ++i) {
-                this.scal[i] = this.aTol[i] + this.rTol[i] + Math.abs(y[i]);
-            }
-            // Initial preparations
-            // TODO: some of this might be movable to the constructor
-            let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)));
-            let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4);
-            h = this.posneg * Math.min(h, this.hMax, Math.abs(xEnd - x) / 2);
-            let xOld = x;
-            this.iPt = 0; // TODO: fix
-            if (solOut) {
-                if (this.options.denseOutput) {
-                    this.iPoint[0] = 0;
-                    for (let i = 0; i < this.options.maxExtrapolationColumns; ++i) {
-                        let njAdd = 4 * (i + 1) - 2;
-                        if (this.nj[i] > njAdd)
-                            ++njAdd;
-                        this.iPoint[i + 1] = this.iPoint[i] + njAdd;
-                    }
-                    for (let mu = 0; mu < 2 * this.options.maxExtrapolationColumns; ++mu) {
-                        let errx = Math.sqrt((mu + 1) / (mu + 5)) * 0.5;
-                        let prod = Math.pow((1 / (mu + 5)), 2);
-                        for (let j = 1; j <= mu + 1; ++j)
-                            prod *= errx / j;
-                        this.errfac[mu] = prod;
-                    }
+        // Initial Scaling
+        for (let i = 0; i < this.n; ++i) {
+            this.scal[i] = this.aTol[i] + this.rTol[i] + Math.abs(y[i]);
+        }
+        // Initial preparations
+        // TODO: some of this might be movable to the constructor
+        let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)));
+        let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4);
+        h = this.posneg * Math.min(h, this.hMax, Math.abs(xEnd - x) / 2);
+        let xOld = x;
+        this.iPt = 0; // TODO: fix
+        if (solOut) {
+            if (this.options.denseOutput) {
+                this.iPoint[0] = 0;
+                for (let i = 0; i < this.options.maxExtrapolationColumns; ++i) {
+                    let njAdd = 4 * (i + 1) - 2;
+                    if (this.nj[i] > njAdd)
+                        ++njAdd;
+                    this.iPoint[i + 1] = this.iPoint[i] + njAdd;
                 }
-                solOut(xOld, x, y, this.noDenseOutput);
+                for (let mu = 0; mu < 2 * this.options.maxExtrapolationColumns; ++mu) {
+                    let errx = Math.sqrt((mu + 1) / (mu + 5)) * 0.5;
+                    let prod = Math.pow((1 / (mu + 5)), 2);
+                    for (let j = 1; j <= mu + 1; ++j)
+                        prod *= errx / j;
+                    this.errfac[mu] = prod;
+                }
             }
-            this.err = 0;
-            this.errOld = 1e10;
-            let hoptde = this.posneg * this.hMax;
-            let reject = false;
-            let last = false;
-            let kc = 0;
-            let STATE;
-            (function (STATE) {
-                STATE[STATE["Start"] = 0] = "Start";
-                STATE[STATE["BasicIntegrationStep"] = 1] = "BasicIntegrationStep";
-                STATE[STATE["ConvergenceStep"] = 2] = "ConvergenceStep";
-                STATE[STATE["HopeForConvergence"] = 3] = "HopeForConvergence";
-                STATE[STATE["Accept"] = 4] = "Accept";
-                STATE[STATE["Reject"] = 5] = "Reject";
-            })(STATE || (STATE = {}));
-            let state = STATE.Start;
-            loop: while (true) {
-                this.options.debug && console.log(`#${this.nStep} ${STATE[state]} [${xOld},${x}] h=${h} k=${k}`);
-                switch (state) {
-                    case STATE.Start:
-                        // Is xEnd reached in the next step?
-                        if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * this.options.uRound)
-                            break loop;
-                        h = this.posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde));
-                        if ((x + 1.01 * h - xEnd) * this.posneg > 0) {
-                            h = xEnd - x;
-                            last = true;
-                        }
-                        if (this.nStep === 0 || !this.options.denseOutput) {
-                            this.copy(dz, this.f(x, y));
-                            ++this.nEval;
-                        }
-                        // The first and last step
-                        if (this.nStep === 0 || last) {
-                            this.iPt = 0;
-                            ++this.nStep;
-                            for (let j = 1; j <= k; ++j) {
-                                kc = j;
-                                if (!this.midex(j - 1, h, x, y, dz)) {
-                                    h *= this.options.stepSizeReductionFactor;
-                                    reject = true;
-                                    continue loop;
-                                }
-                                if (j > 1 && this.err <= 1) {
-                                    state = STATE.Accept;
-                                    continue loop;
-                                }
-                            }
-                            state = STATE.HopeForConvergence;
-                            continue;
-                        }
-                        state = STATE.BasicIntegrationStep;
-                        continue;
-                    case STATE.BasicIntegrationStep:
-                        // basic integration step
+            solOut(xOld, x, y, this.noDenseOutput);
+        }
+        this.err = 0;
+        this.errOld = 1e10;
+        let hoptde = this.posneg * this.hMax;
+        let reject = false;
+        let last = false;
+        let kc = 0;
+        let STATE;
+        (function (STATE) {
+            STATE[STATE["Start"] = 0] = "Start";
+            STATE[STATE["BasicIntegrationStep"] = 1] = "BasicIntegrationStep";
+            STATE[STATE["ConvergenceStep"] = 2] = "ConvergenceStep";
+            STATE[STATE["HopeForConvergence"] = 3] = "HopeForConvergence";
+            STATE[STATE["Accept"] = 4] = "Accept";
+            STATE[STATE["Reject"] = 5] = "Reject";
+        })(STATE || (STATE = {}));
+        let state = STATE.Start;
+        loop: while (true) {
+            this.options.debug && console.log(`#${this.nStep} ${STATE[state]} [${xOld},${x}] h=${h} k=${k}`);
+            switch (state) {
+                case STATE.Start:
+                    // Is xEnd reached in the next step?
+                    if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * this.options.uRound)
+                        break loop;
+                    h = this.posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde));
+                    if ((x + 1.01 * h - xEnd) * this.posneg > 0) {
+                        h = xEnd - x;
+                        last = true;
+                    }
+                    if (this.nStep === 0 || !this.options.denseOutput) {
+                        this.copy(dz, this.f(x, y));
+                        ++this.nEval;
+                    }
+                    // The first and last step
+                    if (this.nStep === 0 || last) {
                         this.iPt = 0;
-                        if (++this.nStep >= this.options.maxSteps) {
-                            throw new Error('maximum allowed steps exceeded: ' + this.nStep);
-                        }
-                        kc = k - 1;
-                        for (let j = 0; j < kc; ++j) {
-                            if (!this.midex(j, h, x, y, dz)) {
+                        ++this.nStep;
+                        for (let j = 1; j <= k; ++j) {
+                            kc = j;
+                            if (!this.midex(j - 1, h, x, y, dz)) {
                                 h *= this.options.stepSizeReductionFactor;
                                 reject = true;
-                                state = STATE.Start;
+                                continue loop;
+                            }
+                            if (j > 1 && this.err <= 1) {
+                                state = STATE.Accept;
                                 continue loop;
                             }
                         }
-                        // convergence monitor
-                        if (k === 2 || reject) {
-                            state = STATE.ConvergenceStep;
-                        }
-                        else {
-                            if (this.err <= 1) {
-                                state = STATE.Accept;
-                            }
-                            else if (this.err > Math.pow(((this.nj[k] * this.nj[k - 1]) / 4), 2)) {
-                                state = STATE.Reject;
-                            }
-                            else
-                                state = STATE.ConvergenceStep;
-                        }
-                        continue;
-                    case STATE.ConvergenceStep: // label 50
-                        if (!this.midex(k - 1, h, x, y, dz)) {
-                            h *= this.options.stepSizeReductionFactor;
-                            reject = true;
-                            state = STATE.Start;
-                            continue;
-                        }
-                        kc = k;
-                        if (this.err <= 1) {
-                            state = STATE.Accept;
-                            continue;
-                        }
                         state = STATE.HopeForConvergence;
                         continue;
-                    case STATE.HopeForConvergence:
-                        // hope for convergence in line k + 1
-                        if (this.err > Math.pow((this.nj[k] / 2), 2)) {
-                            state = STATE.Reject;
-                            continue;
-                        }
-                        kc = k + 1;
-                        if (!this.midex(kc - 1, h, x, y, dz)) {
+                    }
+                    state = STATE.BasicIntegrationStep;
+                    continue;
+                case STATE.BasicIntegrationStep:
+                    // basic integration step
+                    this.iPt = 0;
+                    if (++this.nStep >= this.options.maxSteps) {
+                        throw new Error('maximum allowed steps exceeded: ' + this.nStep);
+                    }
+                    kc = k - 1;
+                    for (let j = 0; j < kc; ++j) {
+                        if (!this.midex(j, h, x, y, dz)) {
                             h *= this.options.stepSizeReductionFactor;
                             reject = true;
                             state = STATE.Start;
+                            continue loop;
                         }
-                        else if (this.err > 1)
-                            state = STATE.Reject;
-                        else
+                    }
+                    // convergence monitor
+                    if (k === 2 || reject) {
+                        state = STATE.ConvergenceStep;
+                    }
+                    else {
+                        if (this.err <= 1) {
                             state = STATE.Accept;
-                        continue;
-                    case STATE.Accept:
-                        const result = this.acceptStep(kc, h, x, y, dz);
-                        state = STATE.Start;
-                        hoptde = (_a = result.hoptde) !== null && _a !== void 0 ? _a : hoptde;
-                        if (!result.accept) {
-                            h = hoptde;
-                            reject = true;
-                            continue;
                         }
-                        // Move forward
-                        xOld = x;
-                        x += h;
-                        if (solOut) {
-                            // If denseOutput, we also want to supply the dense closure.
-                            solOut(xOld, x, y, (_b = result.densef) !== null && _b !== void 0 ? _b : this.noDenseOutput);
+                        else if (this.err > Math.pow(((this.nj[k] * this.nj[k - 1]) / 4), 2)) {
+                            state = STATE.Reject;
                         }
-                        ({ k, h } = this.newOrderAndStepSize(reject, kc, k, h));
-                        reject = false;
-                        continue;
-                    case STATE.Reject:
-                        k = Math.min(k, kc, this.options.maxExtrapolationColumns - 1);
-                        if (k > 2 && this.w[k - 1] < this.w[k] * this.options.stepSizeFac3)
-                            k -= 1;
-                        ++this.nReject;
-                        h = this.posneg * this.hh[k - 1];
+                        else
+                            state = STATE.ConvergenceStep;
+                    }
+                    continue;
+                case STATE.ConvergenceStep: // label 50
+                    if (!this.midex(k - 1, h, x, y, dz)) {
+                        h *= this.options.stepSizeReductionFactor;
                         reject = true;
-                        state = STATE.BasicIntegrationStep;
-                }
+                        state = STATE.Start;
+                        continue;
+                    }
+                    kc = k;
+                    if (this.err <= 1) {
+                        state = STATE.Accept;
+                        continue;
+                    }
+                    state = STATE.HopeForConvergence;
+                    continue;
+                case STATE.HopeForConvergence:
+                    // hope for convergence in line k + 1
+                    if (this.err > Math.pow((this.nj[k] / 2), 2)) {
+                        state = STATE.Reject;
+                        continue;
+                    }
+                    kc = k + 1;
+                    if (!this.midex(kc - 1, h, x, y, dz)) {
+                        h *= this.options.stepSizeReductionFactor;
+                        reject = true;
+                        state = STATE.Start;
+                    }
+                    else if (this.err > 1)
+                        state = STATE.Reject;
+                    else
+                        state = STATE.Accept;
+                    continue;
+                case STATE.Accept:
+                    const result = this.acceptStep(kc, h, x, y, dz);
+                    state = STATE.Start;
+                    hoptde = (_a = result.hoptde) !== null && _a !== void 0 ? _a : hoptde;
+                    if (!result.accept) {
+                        h = hoptde;
+                        reject = true;
+                        continue;
+                    }
+                    // Move forward
+                    xOld = x;
+                    x += h;
+                    if (solOut) {
+                        // If denseOutput, we also want to supply the dense closure.
+                        solOut(xOld, x, y, (_b = result.densef) !== null && _b !== void 0 ? _b : this.noDenseOutput);
+                    }
+                    ({ k, h } = this.newOrderAndStepSize(reject, kc, k, h));
+                    reject = false;
+                    continue;
+                case STATE.Reject:
+                    k = Math.min(k, kc, this.options.maxExtrapolationColumns - 1);
+                    if (k > 2 && this.w[k - 1] < this.w[k] * this.options.stepSizeFac3)
+                        k -= 1;
+                    ++this.nReject;
+                    h = this.posneg * this.hh[k - 1];
+                    reject = true;
+                    state = STATE.BasicIntegrationStep;
             }
-        };
-        odxcor();
+        }
         return {
             y: y,
             nStep: this.nStep,
