@@ -89,6 +89,7 @@ class Solver {
         this.scal = Array(this.n);
         this.iPoint = Array(maxK + 1);
         this.errfac = Array(2 * maxK);
+        this.posneg = 1;
     }
     grid(dt, out) {
         if (!this.options.denseOutput)
@@ -451,6 +452,51 @@ class Solver {
             densef: this.options.denseOutput ? this.contex(x, h, kmit, dens) : this.noDenseOutput
         };
     }
+    newOrderAndStepSize(reject, kc, k, h) {
+        // compute optimal interpolation order
+        let kopt;
+        if (kc === 2) {
+            kopt = Math.min(3, this.options.maxExtrapolationColumns - 1);
+            if (reject)
+                kopt = 2;
+        }
+        else if (kc <= k) {
+            kopt = kc;
+            if (this.w[kc - 2] < this.w[kc - 1] * this.options.stepSizeFac3)
+                kopt = kc - 1;
+            if (this.w[kc - 1] < this.w[kc - 2] * this.options.stepSizeFac4)
+                kopt = Math.min(kc + 1, this.options.maxExtrapolationColumns - 1);
+        }
+        else {
+            kopt = kc - 1;
+            if (kc > 3 && this.w[kc - 3] < this.w[kc - 2] * this.options.stepSizeFac3)
+                kopt = kc - 2;
+            if (this.w[kc - 1] < this.w[kopt - 1] * this.options.stepSizeFac4)
+                kopt = Math.min(kc, this.options.maxExtrapolationColumns - 1);
+        }
+        // after a rejected step
+        if (reject) {
+            return {
+                k: Math.min(kopt, kc),
+                h: this.posneg * Math.min(Math.abs(h), Math.abs(this.hh[k - 1]))
+            };
+        }
+        let r = { h: 0, k: 0 };
+        if (kopt <= kc) {
+            r.h = this.hh[kopt - 1];
+        }
+        else {
+            if (kc < k && this.w[kc - 1] < this.w[kc - 2] * this.options.stepSizeFac4) {
+                r.h = this.hh[kc - 1] * this.a[kopt] / this.a[kc - 1];
+            }
+            else {
+                r.h = this.hh[kc - 1] * this.a[kopt - 1] / this.a[kc - 1];
+            }
+        }
+        r.h = this.posneg * Math.abs(r.h);
+        r.k = kopt;
+        return r;
+    }
     // Integrate the differential system represented by f, from x to xEnd, with initial data y.
     // solOut, if provided, is called at each integration step.
     solve(x, y0, xEnd, solOut) {
@@ -462,6 +508,7 @@ class Solver {
             throw new Error('denseOutput requires a solution observer function');
         this.hMax = Math.abs(this.options.maxStepSize || xEnd - x);
         this.nStep = this.nAccept = this.nReject = 0;
+        this.posneg = xEnd - x >= 0 ? 1 : -1;
         let odxcor = () => {
             var _a, _b;
             // Initial Scaling
@@ -470,10 +517,9 @@ class Solver {
             }
             // Initial preparations
             // TODO: some of this might be movable to the constructor
-            const posneg = xEnd - x >= 0 ? 1 : -1;
             let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)));
             let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4);
-            h = posneg * Math.min(h, this.hMax, Math.abs(xEnd - x) / 2);
+            h = this.posneg * Math.min(h, this.hMax, Math.abs(xEnd - x) / 2);
             let xOld = x;
             this.iPt = 0; // TODO: fix
             if (solOut) {
@@ -497,7 +543,7 @@ class Solver {
             }
             this.err = 0;
             this.errOld = 1e10;
-            let hoptde = posneg * this.hMax;
+            let hoptde = this.posneg * this.hMax;
             let reject = false;
             let last = false;
             let kc = 0;
@@ -518,8 +564,8 @@ class Solver {
                         // Is xEnd reached in the next step?
                         if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * this.options.uRound)
                             break loop;
-                        h = posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde));
-                        if ((x + 1.01 * h - xEnd) * posneg > 0) {
+                        h = this.posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde));
+                        if ((x + 1.01 * h - xEnd) * this.posneg > 0) {
                             h = xEnd - x;
                             last = true;
                         }
@@ -625,55 +671,15 @@ class Solver {
                             // If denseOutput, we also want to supply the dense closure.
                             solOut(xOld, x, y, (_b = result.densef) !== null && _b !== void 0 ? _b : this.noDenseOutput);
                         }
-                        // compute optimal interpolation order
-                        let kopt;
-                        if (kc === 2) {
-                            kopt = Math.min(3, this.options.maxExtrapolationColumns - 1);
-                            if (reject)
-                                kopt = 2;
-                        }
-                        else if (kc <= k) {
-                            kopt = kc;
-                            if (this.w[kc - 2] < this.w[kc - 1] * this.options.stepSizeFac3)
-                                kopt = kc - 1;
-                            if (this.w[kc - 1] < this.w[kc - 2] * this.options.stepSizeFac4)
-                                kopt = Math.min(kc + 1, this.options.maxExtrapolationColumns - 1);
-                        }
-                        else {
-                            kopt = kc - 1;
-                            if (kc > 3 && this.w[kc - 3] < this.w[kc - 2] * this.options.stepSizeFac3)
-                                kopt = kc - 2;
-                            if (this.w[kc - 1] < this.w[kopt - 1] * this.options.stepSizeFac4)
-                                kopt = Math.min(kc, this.options.maxExtrapolationColumns - 1);
-                        }
-                        // after a rejected step
-                        if (reject) {
-                            k = Math.min(kopt, kc);
-                            h = posneg * Math.min(Math.abs(h), Math.abs(this.hh[k - 1]));
-                            reject = false;
-                            continue;
-                        }
-                        if (kopt <= kc) {
-                            h = this.hh[kopt - 1];
-                        }
-                        else {
-                            if (kc < k && this.w[kc - 1] < this.w[kc - 2] * this.options.stepSizeFac4) {
-                                h = this.hh[kc - 1] * this.a[kopt] / this.a[kc - 1];
-                            }
-                            else {
-                                h = this.hh[kc - 1] * this.a[kopt - 1] / this.a[kc - 1];
-                            }
-                        }
-                        // compute step size for next step
-                        k = kopt;
-                        h = posneg * Math.abs(h);
+                        ({ k, h } = this.newOrderAndStepSize(reject, kc, k, h));
+                        reject = false;
                         continue;
                     case STATE.Reject:
                         k = Math.min(k, kc, this.options.maxExtrapolationColumns - 1);
                         if (k > 2 && this.w[k - 1] < this.w[k] * this.options.stepSizeFac3)
                             k -= 1;
                         ++this.nReject;
-                        h = posneg * this.hh[k - 1];
+                        h = this.posneg * this.hh[k - 1];
                         reject = true;
                         state = STATE.BasicIntegrationStep;
                 }
