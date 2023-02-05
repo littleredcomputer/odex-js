@@ -1,6 +1,6 @@
 {
   "name": "odex",
-  "version": "3.0.0",
+  "version": "3.0.0-rc1",
   "description": "Ernst Hairer's ODEX nonstiff ODE solver in JavaScript",
   "keywords": [
     "ordinary",
