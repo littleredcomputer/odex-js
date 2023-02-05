@@ -157,12 +157,27 @@ describe('Odex', () => {
             it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.sin(x)) < 1e-5));
         });
     });
-    describe('cosine (dense output)', () => {
+    describe('cosine/sine (dense output)', () => {
         let s = NewSolver(trig, 2);
-        let o = s.solve(0, [1, 0], 2 * Math.PI, (x, y) => {
-            it(`cos(${x}) ~= ${y} ok`, () => {
+        let o = s.solve(0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
+            var [c, ms] = y;
+            it(`cos;-sin(${x}) ~= ${y} ok`, () => {
+                assert(Math.abs(c - Math.cos(x)) < 1e-5);
+                assert(Math.abs(ms + Math.sin(x)) < 1e-5);
             });
         });
+    });
+    describe('cosine/sine (new interface)', () => {
+        let s = NewSolver(trig, 2, { absoluteTolerance: 1e-6 });
+        let f = s.integrate(0, [1, 0]);
+        for (let x = 0; x < 2 * Math.PI; x += 0.1) {
+            const y = f(x);
+            it(`cos;-sin(${x}) ~= ${y} ok`, () => {
+                assert(Math.abs(y[0] - Math.cos(x)) < 1e-5);
+                assert(Math.abs(y[1] + Math.sin(x)) < 1e-5);
+            });
+        }
+        f();
     });
     describe('cosine (dense output, no error estimation)', () => {
         let s = NewSolver(trig, 2, {
@@ -302,12 +317,13 @@ describe('Odex', () => {
         }));
         const f = s.integrate(0, [1, 1]);
         for (let x = 0; x < data.length; ++x) {
+            const y = f(x);
             it(`works at grid point ${x} (new interface)`, () => {
-                const y = f(x);
                 assert(Math.abs(y[0] - data[x][0]) < 1e-4);
                 assert(Math.abs(y[1] - data[x][1]) < 1e-4);
             });
         }
+        f();
     });
     describe(`Topologist's sine function`, () => {
         // Here we supply a differential equation designed to test the limits.

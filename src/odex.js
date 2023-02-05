@@ -3,7 +3,7 @@
  * An implementation of ODEX, by E. Hairer and G. Wanner, ported from the Fortran ODEX.F.
  * The original work carries the BSD 2-clause license, and so does this.
  *
- * Copyright (c) 2016 Colin Smith.
+ * Copyright (c) 2016-2023 Colin Smith.
  * 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
  * disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
@@ -19,8 +19,19 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Solver = void 0;
-const console_1 = require("console");
 class Solver {
+    /**
+     * Construct an integrator for the differential system f (which is a function
+     * expected to take a number and return a vector of numbers $Y = f(x)$.), where
+     * Y is a vector of length `n`.
+     *
+     * Updates to the default options for the integrator may also be given.
+     * Options cannot be changed after the solver is constructed.
+     *
+     * @param f function to integrate
+     * @param n dimension of f's return value
+     * @param options dictionary of option updates
+     */
     constructor(f, n, options = {}) {
         this.hMax = 0; // maximum step size chosen for this problem
         this.nEval = 0; // number of function evaluations done
@@ -90,19 +101,29 @@ class Solver {
         this.errfac = Array(2 * maxK);
         this.posneg = 1;
     }
+    /**
+     * Grid is supplied as a ready-made integration callback that manages
+     * the delivery of uniformly-spaced integration points. Essentially it
+     * is transforms the step callback (which is invoked at irregular
+     * intervals due to the adaptive step size of the underlying algorithm
+     * and) into a callback that is invoked at predictable coordinates.
+     * The callback produced by grid also takes care of assembling a solution
+     * vector for each component, rather than leaving it up to the client
+     * to call the interpolating function for each component of the solution.
+     *
+     * All of this is easier to do with the new `integrate` interface.
+     *
+     * @param dt interval between points
+     * @param out user callback function, invoked at uniform intervals
+     * @returns a callback for use with the solve interface
+     */
     grid(dt, out) {
         if (!this.options.denseOutput)
             throw new Error('Must set .denseOutput to true when using grid');
         const components = this.options.denseComponents;
         let t;
-        let first = true;
         return (xOld, x, y, interpolate) => {
-            if (first) {
-                let v = out(x, y);
-                t = x + dt;
-                first = false;
-                return v;
-            }
+            t !== null && t !== void 0 ? t : (t = xOld);
             while (t <= x) {
                 let yf = [];
                 for (let i of components) {
@@ -115,9 +136,16 @@ class Solver {
             }
         };
     }
+    /**
+     * Possibly converts a number to an array sized to the dimension of the
+     * integration problem, containing the supplied number in every slot.
+     *
+     * @param x value
+     * @returns An array [x, x, ...]
+     */
     expandToArray(x) {
         // If x is an array, return it. If x is a number, return a new array, sized
-        // to the dimension of the problem, filled with the number.
+        // to the dimension of the problem, filled with the number@.
         if (Array.isArray(x)) {
             return x;
         }
@@ -127,10 +155,20 @@ class Solver {
     }
     copy(a, b) {
         // Copy the elements of b into a
-        (0, console_1.assert)(a.length === b.length);
+        if (a.length !== b.length) {
+            throw new Error('copy used on arrays of differing size');
+        }
         for (let i = 0; i < a.length; ++i)
             a[i] = b[i];
     }
+    /**
+     * This is a dummy function used to fill the dense output function field
+     * of a `SolutionSegment` when dense output is switched off. Throws when
+     * invoked with any arguments.
+     *
+     * @param c component number
+     * @param x independent coordinate value
+     */
     noDenseOutput(c, x) {
         throw new Error('denseOutput not enabled for this problem');
     }
@@ -344,6 +382,17 @@ class Solver {
         this.w[j] = this.a[j] / this.hh[j];
         return true;
     }
+    /**
+     * Considers accepting the current integration step, and, if dense output is
+     * requested, prepares the data that will be used by the iterpolating function.
+     * If denseOutputErrorEstimator is also switched on, information gathered
+     * while preparing the dense output data may be used to tardily decide that
+     * the step should be rejected after all.
+     *
+     * @returns an object with the new optimized step size and either a dense
+     *     interpolation function or an indication that the step should be
+     *     rejected after all.
+     */
     acceptStep(kc, h, x, y, dz) {
         // label 60
         const ncom = (2 * this.options.maxExtrapolationColumns + 5) + this.options.denseComponents.length;
@@ -459,6 +508,16 @@ class Solver {
             densef: this.options.denseOutput ? this.contex(x, h, kmit, dens) : this.noDenseOutput
         };
     }
+    /**
+     * Compute new "optimal" extrapolation order and step size based on current
+     * integration conditions recorded in the work array `w`.
+     *
+     * @param reject true if the previous integration step was rejected
+     * @param kc current extrapolation column
+     * @param k extrapolation columns
+     * @param h previous step size
+     * @returns An object holding new step size and extrapolation order
+     */
     newOrderAndStepSize(reject, kc, k, h) {
         // compute optimal interpolation order
         let kopt;
@@ -506,6 +565,12 @@ class Solver {
     }
     /**
      * Legacy interface, which delivers solution segments via callback.
+     * The callback will be invoked with the values `xOld`, `x`, `y`, and
+     * `f`. This represents the integration step of the interval `[xOld, x]`,
+     * where $y$ is the integrated value of $f(x)$, and (if dense output was
+     * requested) `f` can be used to obtain high quality results for $f(x)$
+     * anywhere in the interval `[xOld, x]`. It is illegal to use f outside
+     * this range.
      *
      * @param x0 initial independent variable
      * @param y0 f(x0)
@@ -516,8 +581,6 @@ class Solver {
     solve(x0, y0, xEnd, solOut) {
         if (this.options.denseOutput && !solOut)
             throw new Error('solve: denseOutput requires a solution observer function');
-        if (solOut)
-            solOut(x0, x0, y0, this.noDenseOutput);
         let lastY = y0;
         for (let segment of this.solutionSegments(x0, y0, xEnd)) {
             if (solOut) {
@@ -535,25 +598,46 @@ class Solver {
         };
     }
     /**
-     * New interface TBD
+     * Integrate the differential equation. This produces a function which will
+     * interpolate the solution as far as desired (starting at the point where
+     * the initial conditions are provided). The function must be invoked on an
+     * increasing sequence of x values: you cannot rewind the integration to an
+     * earlier point. (Behind the scenes, a variable step size integration
+     * algorithm is generating solution segments valid on finite intervals. As
+     * you move into a new interval, older intervals are discarded, allowing the
+     * integration to proceed indefinitely without accumulating memory).
+     *
+     * You can signal that you are through with the integrator by calling the
+     * interpolator function with no arguments.
      *
      * @param x0 initial independent variable
      * @param y0 f(x0)
+     * @return interpolation function valid on a monotonically increasing
+     *     argument sequence
      */
     integrate(x0, y0) {
         if (!this.options.denseOutput)
             throw new Error('integrate interface requires denseOutput');
         const components = this.options.denseComponents;
-        const segments = this.solutionSegments(x0, y0, 999999);
+        const segments = this.solutionSegments(x0, y0);
         let s = segments.next();
         return (x) => {
-            while (!s.done && x > s.value.x1)
-                s = segments.next();
-            const v = [];
-            for (let c of components) {
-                v.push(s.value.f(c, x));
+            if (x === undefined) {
+                segments.next(false);
+                return [];
             }
-            return v;
+            else if (x < s.value.x0) {
+                throw new Error('cannot use interpolation function in backwards direction');
+            }
+            else {
+                while (!s.done && x > s.value.x1)
+                    s = segments.next();
+                const v = [];
+                for (let c of components) {
+                    v.push(s.value.f(c, x));
+                }
+                return v;
+            }
         };
     }
     /**
@@ -567,9 +651,9 @@ class Solver {
      * use denseComponents to restrict the y components for which dense output
      * data is computed.
      *
-     * @param x
-     * @param y0
-     * @param xEnd
+     * @param x initial independent coordinate
+     * @param y0 initial value
+     * @param xEnd optional end of integration interval
      */
     *solutionSegments(x, y0, xEnd) {
         var _a, _b;
@@ -577,9 +661,18 @@ class Solver {
             throw new Error('y0 must be an array sized to the dimension of the problem');
         let y = y0.slice();
         let dz = Array(this.n);
-        this.hMax = Math.abs(this.options.maxStepSize || xEnd - x);
+        this.hMax = this.options.maxStepSize;
+        if (this.options.maxStepSize) {
+            this.hMax = this.options.maxStepSize;
+        }
+        else if (xEnd) {
+            this.hMax = Math.abs(xEnd - x);
+        }
+        else {
+            this.hMax = 1;
+        }
         this.nStep = this.nAccept = this.nReject = 0;
-        this.posneg = xEnd - x >= 0 ? 1 : -1;
+        this.posneg = xEnd ? (xEnd - x >= 0 ? 1 : -1) : 1;
         // Initial Scaling
         for (let i = 0; i < this.n; ++i) {
             this.scal[i] = this.aTol[i] + this.rTol[i] + Math.abs(y[i]);
@@ -587,7 +680,7 @@ class Solver {
         // Initial preparations
         let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)));
         let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4);
-        h = this.posneg * Math.min(h, this.hMax, Math.abs(xEnd - x) / 2);
+        h = this.posneg * Math.min(h, this.hMax, xEnd ? Math.abs(xEnd - x) / 2 : Infinity);
         let xOld = x;
         this.iPt = 0; // TODO: fix
         if (this.options.denseOutput) {
@@ -626,13 +719,18 @@ class Solver {
             this.options.debug && console.log(`#${this.nStep} ${STATE[state]} [${xOld},${x}] h=${h} k=${k}`);
             switch (state) {
                 case STATE.Start:
-                    // Is xEnd reached in the next step?
-                    if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * this.options.uRound)
-                        break loop;
-                    h = this.posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde));
-                    if ((x + 1.01 * h - xEnd) * this.posneg > 0) {
-                        h = xEnd - x;
-                        last = true;
+                    if (xEnd !== undefined) {
+                        // Is xEnd reached in the next step?
+                        if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * this.options.uRound)
+                            break loop;
+                        h = this.posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde));
+                        if ((x + 1.01 * h - xEnd) * this.posneg > 0) {
+                            h = xEnd - x;
+                            last = true;
+                        }
+                    }
+                    else {
+                        h = this.posneg * Math.min(Math.abs(h), this.hMax, Math.abs(hoptde));
                     }
                     if (this.nStep === 0 || !this.options.denseOutput) {
                         this.copy(dz, this.f(x, y));
@@ -732,12 +830,17 @@ class Solver {
                     // Move forward
                     xOld = x;
                     x += h;
-                    yield {
+                    const proceed = yield {
                         x0: xOld,
                         x1: x,
                         y: y,
                         f: (_b = result.densef) !== null && _b !== void 0 ? _b : this.noDenseOutput
                     };
+                    if (proceed === false) {
+                        // Client has signaled that they are through with the integration
+                        // and so no further segments will be needed.
+                        return;
+                    }
                     ({ k, h } = this.newOrderAndStepSize(reject, kc, k, h));
                     reject = false;
                     continue;
