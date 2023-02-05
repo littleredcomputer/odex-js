@@ -51,6 +51,12 @@ describe('Odex', () => {
         it('throws for a bad Type', () => assert.throws(() => odex_1.Solver.stepSizeSequence(6, 8), Error));
         it('throws for a bad Type', () => assert.throws(() => odex_1.Solver.stepSizeSequence(0, 8), Error));
     });
+    describe('Van der Pol equation', () => {
+        const tol = 1e-5;
+        const y2 = NewSolver(vanDerPol(0.1), 2).integrate(0, [2, 0])(2);
+        it('worked for y (new interface)', () => assert(Math.abs(y2[0] + 1.58184) < tol));
+        it('worked for y\' (new interface)', () => assert(Math.abs(y2[1] - 0.978449) < tol));
+    });
     describe('Van der Pol equation w/o dense output', () => {
         const tol = 1e-5;
         const s = NewSolver(vanDerPol(0.1), 2, {
@@ -58,6 +64,7 @@ describe('Odex', () => {
             relativeTolerance: tol,
             initialStepSize: 0.01,
             maxSteps: 50,
+            denseOutput: false,
         });
         const y0 = [2, 0];
         const { y: [y1, y1p] } = s.solve(0, y0, 2);
@@ -68,14 +75,15 @@ describe('Odex', () => {
         const tol = 1e-8;
         let s = NewSolver((x, y) => y, 1, {
             absoluteTolerance: tol,
-            relativeTolerance: tol
+            relativeTolerance: tol,
+            denseOutput: false,
         });
         let y0 = [1];
         let { y: [y1] } = s.solve(0, y0, 1);
         it('worked for y', () => assert(Math.abs(y1 - Math.exp(1)) < tol * 10));
     });
     describe('y" = -y (sine/cosine)', () => {
-        let s = NewSolver(trig, 2);
+        let s = NewSolver(trig, 2, { denseOutput: false });
         let y0 = [0, 1];
         let { y: [y1, y1p] } = s.solve(0, y0, 1);
         it('worked for y', () => assert(Math.abs(y1 - Math.sin(1)) < 1e-5));
@@ -93,7 +101,8 @@ describe('Odex', () => {
     });
     describe('Airy equation y" = xy', () => {
         let s = NewSolver(airy, 2, {
-            initialStepSize: 1e-4
+            initialStepSize: 1e-4,
+            denseOutput: false
         });
         let y0 = [0.3550280539, -0.2588194038];
         let a = s.solve(0, y0, 1);
@@ -108,7 +117,8 @@ describe('Odex', () => {
     });
     describe('Bessel equation x^2 y" + x y\' + (x^2-a^2) y = 0', () => {
         let s = NewSolver(bessel(1), 2, {
-            initialStepSize: 1e-6
+            initialStepSize: 1e-6,
+            denseOutput: false
         });
         let y1 = [0.4400505857, 0.3251471008];
         let y2 = s.solve(1, y1, 2);
@@ -119,7 +129,8 @@ describe('Odex', () => {
         it(`y' (small step size)`, () => assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6));
         s = NewSolver(bessel(1), 2, {
             absoluteTolerance: 1e-12,
-            relativeTolerance: 1e-12
+            relativeTolerance: 1e-12,
+            denseOutput: false
         });
         let y4 = s.solve(1, y1, 2);
         it('y (low tolerance)', () => assert(Math.abs(y4.y[0] - 0.5767248078) < 1e-10));
@@ -127,7 +138,8 @@ describe('Odex', () => {
     });
     describe('max step control', () => {
         let s = NewSolver(vanDerPol(0.1), 2, {
-            maxSteps: 2
+            maxSteps: 2,
+            denseOutput: false,
         });
         it('reports correct error', () => assert.throws(() => {
             s.solve(0, [2, 0], 10);
@@ -146,16 +158,14 @@ describe('Odex', () => {
         });
     });
     describe('cosine (dense output)', () => {
-        let s = NewSolver(trig, 2, {
-            denseOutput: true
-        });
-        let o = s.solve(0, [1, 0], 2 * Math.PI, () => {
-            // console.log('dense cos', Math.abs(y[0]-Math.cos(x)))
+        let s = NewSolver(trig, 2);
+        let o = s.solve(0, [1, 0], 2 * Math.PI, (x, y) => {
+            it(`cos(${x}) ~= ${y} ok`, () => {
+            });
         });
     });
     describe('cosine (dense output, no error estimation)', () => {
         let s = NewSolver(trig, 2, {
-            denseOutput: true,
             denseOutputErrorEstimator: false
         });
         let o = s.solve(0, [1, 0], 2 * Math.PI, () => {
@@ -166,9 +176,7 @@ describe('Odex', () => {
         it('had no rejection steps', () => assert(o.nReject === 0));
     });
     describe('cosine (dense output, grid evaluation)', () => {
-        let s = NewSolver(trig, 2, {
-            denseOutput: true
-        });
+        let s = NewSolver(trig, 2);
         const grid = 0.1;
         let current = 0.0;
         let o = s.solve(0, [1, 0], Math.PI / 2, (xOld, x, y, f) => {
@@ -214,14 +222,11 @@ describe('Odex', () => {
         });
         it('throws for dense-output-incompatible step sequence', () => {
             assert.throws(() => {
-                NewSolver(trig, 2, {
-                    stepSizeSequence: 1,
-                    denseOutput: true
-                });
+                NewSolver(trig, 2, { stepSizeSequence: 1 });
             }, Error);
         });
         it('throws when dense output is requested but no observer function is given', () => {
-            let s = NewSolver(trig, 2, { denseOutput: true });
+            let s = NewSolver(trig, 2);
             assert.throws(() => {
                 s.solve(0, [1, 0], 1);
             }, Error);
@@ -233,11 +238,11 @@ describe('Odex', () => {
             assert.throws(() => { NewSolver(trig, 2, { uRound: Math.PI }); }, Error);
         });
         it('throws for bad dense component', () => {
-            assert.throws(() => { NewSolver(trig, 2, { denseOutput: true, denseComponents: [5] }); }, Error);
+            assert.throws(() => { NewSolver(trig, 2, { denseComponents: [5] }); }, Error);
         });
         it('throws when dense interpolator called but denseOutput is false', () => {
             assert.throws(() => {
-                NewSolver((x, y) => y, 1).solve(0, [1], 1, (xOld, x, y, dense) => {
+                NewSolver((x, y) => y, 1, { denseOutput: false }).solve(0, [1], 1, (xOld, x, y, dense) => {
                     dense(0, xOld);
                 });
             }, Error);
@@ -245,8 +250,7 @@ describe('Odex', () => {
     });
     describe('requesting specific dense output component', () => {
         let s = NewSolver(trig, 2, {
-            denseComponents: [1],
-            denseOutput: true
+            denseComponents: [1] // we only want y', e.g., -sin(x), densely output
         });
         let component = (k) => {
             let diff = 1e10;
@@ -289,20 +293,27 @@ describe('Odex', () => {
             [1.64389, 0.319706],
             [1.70715, 0.672033]
         ];
-        let s = NewSolver(lotkaVolterra(2 / 3, 4 / 3, 1, 1), 2, { denseOutput: true });
+        let s = NewSolver(lotkaVolterra(2 / 3, 4 / 3, 1, 1), 2);
         let i = 0;
         s.solve(0, [1, 1], 15, s.grid(1, (x, y) => {
             let diff = Math.abs(y[0] - data[i][0]);
             it('works for y1 at grid point ' + i, () => assert(diff < 1e-4));
             ++i;
         }));
+        const f = s.integrate(0, [1, 1]);
+        for (let x = 0; x < data.length; ++x) {
+            it(`works at grid point ${x} (new interface)`, () => {
+                const y = f(x);
+                assert(Math.abs(y[0] - data[x][0]) < 1e-4);
+                assert(Math.abs(y[1] - data[x][1]) < 1e-4);
+            });
+        }
     });
     describe(`Topologist's sine function`, () => {
         // Here we supply a differential equation designed to test the limits.
         // Let y = sin(1/x). Then y' = -cos(1/x) / x^2.
         const left = 0.005;
         let s = NewSolver((x, y) => [-Math.cos(1 / x) / (x * x)], 1, {
-            denseOutput: true,
             absoluteTolerance: [1e-6],
             relativeTolerance: [1e-6]
         });
@@ -329,7 +340,6 @@ describe('Odex', () => {
         const y0 = [0.994, 0, 0, -2.00158510637908252240537862224];
         const o = 17.0652165601579625588917206249;
         let s = NewSolver(arenstorf, 4, {
-            denseOutput: true,
             absoluteTolerance: 1e-13,
             relativeTolerance: 1e-13,
             maxSteps: 450,
@@ -355,86 +365,93 @@ describe('Odex', () => {
         //  {b = brusselator[x, {u[x], v[x]}], eqns, sol},
         //  eqns = {u'[x] == b[[1]], v'[x] == b[[2]], u[0] == 1.5, v[0] == 3};
         //  sol = NDSolve[eqns, {u, v}, {x, 0, 100}, PrecisionGoal -> 10, AccuracyGoal -> 10];
-        //  Table[{x, u[x], v[x]} /. sol[[1]], {x, 0, 50}]
+        //  Table[{u[x], v[x]} /. sol[[1]], {x, 0, 50}]
         // ] // TableForm
         let expected = [
-            [0, 1.5, 3.],
-            [1, 1.9687324614970472, 1.3872242452877888],
-            [2, 0.7836527243313195, 2.2638026937840854],
-            [3, 0.4092722683419311, 3.0940721815673107],
-            [4, 0.3789883862376455, 3.741300856032631],
-            [5, 0.42684765573712613, 4.294841823969646],
-            [6, 0.5564834652804204, 4.685198966727131],
-            [7, 1.5692978356881258, 3.8436547077252374],
-            [8, 2.3116963988064545, 1.1439682721434319],
-            [9, 0.8549792982903923, 2.120975017942679],
-            [10, 0.4135587808913013, 2.9890253860508915],
-            [11, 0.37247383212355717, 3.649653178982998],
-            [12, 0.4145846507809723, 4.21804448636827],
-            [13, 0.5243065096836395, 4.64783572230916],
-            [14, 1.1160993194128432, 4.349005861975553],
-            [15, 2.6673672539793243, 1.0214641609151387],
-            [16, 1.0047312101569874, 1.9598509396622874],
-            [17, 0.4406355660385759, 2.8719188877308293],
-            [18, 0.37073063735365575, 3.5527653526163987],
-            [19, 0.40478259747226436, 4.135197671353168],
-            [20, 0.49863705379195494, 4.596780381876813],
-            [21, 0.8895187218574275, 4.57422493426566],
-            [22, 3.0649339327389584, 0.916211557863259],
-            [23, 1.1818097102918392, 1.7970455152944678],
-            [24, 0.4788241449137573, 2.748786813645942],
-            [25, 0.37093322979057364, 3.4538052990631862],
-            [26, 0.396213502386157, 4.04967752567108],
-            [27, 0.4773079408752256, 4.537713380287463],
-            [28, 0.7584657912800581, 4.676837114806915],
-            [29, 3.4852693501585863, 0.8529819303282253],
-            [30, 1.3871144963264992, 1.6360025261578912],
-            [31, 0.53118846393425, 2.618541256926324],
-            [32, 0.37361633818272355, 3.352582802554267],
-            [33, 0.3887955047288194, 3.961752617705086],
-            [34, 0.45925724689174585, 4.47228951457932],
-            [35, 0.6735955669481594, 4.716717477874872],
-            [36, 3.751630832612526, 1.0027050923843572],
-            [37, 1.621934755239501, 1.479954748428448],
-            [38, 0.6010614436360571, 2.4803337081186565],
-            [39, 0.37954301810724733, 3.2487805108063417],
-            [40, 0.38250605302982477, 3.871623584865032],
-            [41, 0.44376301650519634, 4.401685058010093],
-            [42, 0.6140328129264604, 4.72013819257371],
-            [43, 3.0690250489151847, 2.081821880632137],
-            [44, 1.8884050414357416, 1.3315534624030951],
-            [45, 0.6917066331157924, 2.3339076273960764],
-            [46, 0.3897754936421547, 3.141924090137784],
-            [47, 0.3773844131371987, 3.779430478115748],
-            [48, 0.43032219786557335, 4.3267624021028475],
-            [49, 0.5697195275373672, 4.7002517839869755],
-            [50, 1.8598568626985814, 3.514424192705786],
+            [1.5, 3.],
+            [1.9687324614970472, 1.3872242452877888],
+            [0.7836527243313195, 2.2638026937840854],
+            [0.4092722683419311, 3.0940721815673107],
+            [0.3789883862376455, 3.741300856032631],
+            [0.42684765573712613, 4.294841823969646],
+            [0.5564834652804204, 4.685198966727131],
+            [1.5692978356881258, 3.8436547077252374],
+            [2.3116963988064545, 1.1439682721434319],
+            [0.8549792982903923, 2.120975017942679],
+            [0.4135587808913013, 2.9890253860508915],
+            [0.37247383212355717, 3.649653178982998],
+            [0.4145846507809723, 4.21804448636827],
+            [0.5243065096836395, 4.64783572230916],
+            [1.1160993194128432, 4.349005861975553],
+            [2.6673672539793243, 1.0214641609151387],
+            [1.0047312101569874, 1.9598509396622874],
+            [0.4406355660385759, 2.8719188877308293],
+            [0.37073063735365575, 3.5527653526163987],
+            [0.40478259747226436, 4.135197671353168],
+            [0.49863705379195494, 4.596780381876813],
+            [0.8895187218574275, 4.57422493426566],
+            [3.0649339327389584, 0.916211557863259],
+            [1.1818097102918392, 1.7970455152944678],
+            [0.4788241449137573, 2.748786813645942],
+            [0.37093322979057364, 3.4538052990631862],
+            [0.396213502386157, 4.04967752567108],
+            [0.4773079408752256, 4.537713380287463],
+            [0.7584657912800581, 4.676837114806915],
+            [3.4852693501585863, 0.8529819303282253],
+            [1.3871144963264992, 1.6360025261578912],
+            [0.53118846393425, 2.618541256926324],
+            [0.37361633818272355, 3.352582802554267],
+            [0.3887955047288194, 3.961752617705086],
+            [0.45925724689174585, 4.47228951457932],
+            [0.6735955669481594, 4.716717477874872],
+            [3.751630832612526, 1.0027050923843572],
+            [1.621934755239501, 1.479954748428448],
+            [0.6010614436360571, 2.4803337081186565],
+            [0.37954301810724733, 3.2487805108063417],
+            [0.38250605302982477, 3.871623584865032],
+            [0.44376301650519634, 4.401685058010093],
+            [0.6140328129264604, 4.72013819257371],
+            [3.0690250489151847, 2.081821880632137],
+            [1.8884050414357416, 1.3315534624030951],
+            [0.6917066331157924, 2.3339076273960764],
+            [0.3897754936421547, 3.141924090137784],
+            [0.3773844131371987, 3.779430478115748],
+            [0.43032219786557335, 4.3267624021028475],
+            [0.5697195275373672, 4.7002517839869755],
+            [1.8598568626985814, 3.514424192705786],
         ];
         let s = NewSolver(brusselator, 2, {
-            denseOutput: true,
             absoluteTolerance: 1e-8,
             relativeTolerance: 1e-8
         });
-        s.solve(0, [1.5, 3], 50, s.grid(1, (x, y) => {
+        s.solve(0, [1.5, 3], 50, s.grid(1, (t, y) => {
             const value = y.slice();
-            it('agrees at grid point ' + x + ' : ' + value, () => {
-                const [t, u, v] = expected[x];
-                assert.equal(t, x);
+            it('agrees at grid point ' + t + ' : ' + value, () => {
+                const [u, v] = expected[t];
                 assert(Math.abs(u - value[0]) / u < 3e-7);
                 assert(Math.abs(v - value[1]) / v < 3e-7);
             });
         }));
+        const f = s.integrate(0, [1.5, 3]);
+        for (let t = 0; t <= 50; ++t) {
+            const value = f(t);
+            it(`agrees at grid point ${t} : ${value} (new interface)`, () => {
+                const [u, v] = expected[t];
+                assert(Math.abs(u - value[0]) / u < 3e-7);
+                assert(Math.abs(v - value[1]) / v < 3e-7);
+            });
+        }
     });
     describe('Configuration debugging', () => {
         it('throws when you use grid without denseOutput', () => {
-            let s = NewSolver((x, y) => y, 1);
+            let s = NewSolver((x, y) => y, 1, { denseOutput: false });
             assert.throws(() => {
                 s.solve(0, [1], 1, s.grid(0.1, console.log));
             }, /denseOutput/, 'expected recommendation to use denseOutput');
         });
     });
     describe('Solver object can be restarted', () => {
-        const s = NewSolver(trig, 2);
+        const s = NewSolver(trig, 2, { denseOutput: false });
         for (let theta = 0.0; theta < 2 * Math.PI; theta += 0.2) {
             // Instead of using grid, wastefully restart the inegration for
             // each theta value
@@ -445,5 +462,8 @@ describe('Odex', () => {
             });
         }
     });
+    // add test: cannot rewind in integrate mode
+    // long range integration
+    // step size min max honored
 });
 //# sourceMappingURL=odexTest.js.map

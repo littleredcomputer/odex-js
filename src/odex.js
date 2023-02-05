@@ -47,9 +47,8 @@ class Solver {
             throw new Error('bad interpolationFormulaDegree');
         if (this.options.denseOutput) {
             if (!Array.isArray(this.options.denseComponents) || this.options.denseComponents.length == 0) {
-                // if user asked for dense output but did not specify any denseComponents,
-                // request all of them. Create a new array so that we do not re-use the
-                // default empty array.
+                // if user does not specify any denseComponents, request all of them.
+                // Create a new array so that we do not re-use the default empty array.
                 this.options.denseComponents = [];
                 for (let i = 0; i < this.n; ++i) {
                     this.options.denseComponents.push(i);
@@ -242,11 +241,19 @@ class Solver {
             return phthet + Math.pow((theta * theta1), 2) * ret;
         };
     }
+    /**
+     * Computes the jth line of the extrapolation table (0-based) and
+     * provides an estimation of the optional stepsize. Returns
+     * false if the Fortran condition "ATOV" is true. Not quite
+     * sure what that stands for as of this writing.
+     * @param j
+     * @param h
+     * @param x
+     * @param y
+     * @param yprime
+     * @returns
+     */
     midex(j, h, x, y, yprime) {
-        // Computes the jth line of the extrapolation table (0-based) and
-        // provides an estimation of the optional stepsize. Returns
-        // false if the Fortran condition "ATOV" is true. Not quite
-        // sure what that stands for as of this writing.
         const dy = Array(this.n);
         const yh1 = Array(this.n);
         const yh2 = Array(this.n);
@@ -497,16 +504,79 @@ class Solver {
         r.k = kopt;
         return r;
     }
-    // Integrate the differential system represented by f, from x to xEnd, with initial data y.
-    // solOut, if provided, is called at each integration step.
-    solve(x, y0, xEnd, solOut) {
+    /**
+     * Legacy interface, which delivers solution segments via callback.
+     *
+     * @param x0 initial independent variable
+     * @param y0 f(x0)
+     * @param xEnd end of integration interval
+     * @param solOut optional solution segment callback, or step handler
+     * @returns an object containing summary information about the integration
+     */
+    solve(x0, y0, xEnd, solOut) {
+        if (this.options.denseOutput && !solOut)
+            throw new Error('solve: denseOutput requires a solution observer function');
+        if (solOut)
+            solOut(x0, x0, y0, this.noDenseOutput);
+        let lastY = y0;
+        for (let segment of this.solutionSegments(x0, y0, xEnd)) {
+            if (solOut) {
+                solOut(segment.x0, segment.x1, segment.y, segment.f);
+            }
+            lastY = segment.y;
+        }
+        return {
+            y: lastY,
+            nStep: this.nStep,
+            xEnd: xEnd,
+            nAccept: this.nAccept,
+            nReject: this.nReject,
+            nEval: this.nEval
+        };
+    }
+    /**
+     * New interface TBD
+     *
+     * @param x0 initial independent variable
+     * @param y0 f(x0)
+     */
+    integrate(x0, y0) {
+        if (!this.options.denseOutput)
+            throw new Error('integrate interface requires denseOutput');
+        const components = this.options.denseComponents;
+        const segments = this.solutionSegments(x0, y0, 999999);
+        let s = segments.next();
+        return (x) => {
+            while (!s.done && x > s.value.x1)
+                s = segments.next();
+            const v = [];
+            for (let c of components) {
+                v.push(s.value.f(c, x));
+            }
+            return v;
+        };
+    }
+    /**
+     * Integrate the differential system represented by f, given initial
+     * values x and y0 = f(x). This generates a contiguous sequence of
+     * solution segments. Each segment contains an interval [x0, x1] and
+     * the integrated value f(x1). If denseOutput is selected in the options,
+     * an interpolation function is provided, valid over the closed interval.
+     *
+     * Use of this interface switches on the denseOutput flag. You can still
+     * use denseComponents to restrict the y components for which dense output
+     * data is computed.
+     *
+     * @param x
+     * @param y0
+     * @param xEnd
+     */
+    *solutionSegments(x, y0, xEnd) {
         var _a, _b;
         if (!Array.isArray(y0) || y0.length != this.n)
             throw new Error('y0 must be an array sized to the dimension of the problem');
         let y = y0.slice();
         let dz = Array(this.n);
-        if (this.options.denseOutput && !solOut)
-            throw new Error('denseOutput requires a solution observer function');
         this.hMax = Math.abs(this.options.maxStepSize || xEnd - x);
         this.nStep = this.nAccept = this.nReject = 0;
         this.posneg = xEnd - x >= 0 ? 1 : -1;
@@ -515,30 +585,26 @@ class Solver {
             this.scal[i] = this.aTol[i] + this.rTol[i] + Math.abs(y[i]);
         }
         // Initial preparations
-        // TODO: some of this might be movable to the constructor
         let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)));
         let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4);
         h = this.posneg * Math.min(h, this.hMax, Math.abs(xEnd - x) / 2);
         let xOld = x;
         this.iPt = 0; // TODO: fix
-        if (solOut) {
-            if (this.options.denseOutput) {
-                this.iPoint[0] = 0;
-                for (let i = 0; i < this.options.maxExtrapolationColumns; ++i) {
-                    let njAdd = 4 * (i + 1) - 2;
-                    if (this.nj[i] > njAdd)
-                        ++njAdd;
-                    this.iPoint[i + 1] = this.iPoint[i] + njAdd;
-                }
-                for (let mu = 0; mu < 2 * this.options.maxExtrapolationColumns; ++mu) {
-                    let errx = Math.sqrt((mu + 1) / (mu + 5)) * 0.5;
-                    let prod = Math.pow((1 / (mu + 5)), 2);
-                    for (let j = 1; j <= mu + 1; ++j)
-                        prod *= errx / j;
-                    this.errfac[mu] = prod;
-                }
+        if (this.options.denseOutput) {
+            this.iPoint[0] = 0;
+            for (let i = 0; i < this.options.maxExtrapolationColumns; ++i) {
+                let njAdd = 4 * (i + 1) - 2;
+                if (this.nj[i] > njAdd)
+                    ++njAdd;
+                this.iPoint[i + 1] = this.iPoint[i] + njAdd;
             }
-            solOut(xOld, x, y, this.noDenseOutput);
+            for (let mu = 0; mu < 2 * this.options.maxExtrapolationColumns; ++mu) {
+                let errx = Math.sqrt((mu + 1) / (mu + 5)) * 0.5;
+                let prod = Math.pow((1 / (mu + 5)), 2);
+                for (let j = 1; j <= mu + 1; ++j)
+                    prod *= errx / j;
+                this.errfac[mu] = prod;
+            }
         }
         this.err = 0;
         this.errOld = 1e10;
@@ -666,10 +732,12 @@ class Solver {
                     // Move forward
                     xOld = x;
                     x += h;
-                    if (solOut) {
-                        // If denseOutput, we also want to supply the dense closure.
-                        solOut(xOld, x, y, (_b = result.densef) !== null && _b !== void 0 ? _b : this.noDenseOutput);
-                    }
+                    yield {
+                        x0: xOld,
+                        x1: x,
+                        y: y,
+                        f: (_b = result.densef) !== null && _b !== void 0 ? _b : this.noDenseOutput
+                    };
                     ({ k, h } = this.newOrderAndStepSize(reject, kc, k, h));
                     reject = false;
                     continue;
@@ -683,14 +751,6 @@ class Solver {
                     state = STATE.BasicIntegrationStep;
             }
         }
-        return {
-            y: y,
-            nStep: this.nStep,
-            xEnd: xEnd,
-            nAccept: this.nAccept,
-            nReject: this.nReject,
-            nEval: this.nEval
-        };
     }
 }
 exports.Solver = Solver;
@@ -703,7 +763,7 @@ Solver.defaults = {
     stepSizeSequence: 0,
     stabilityCheckCount: 1,
     stabilityCheckTableLines: 2,
-    denseOutput: false,
+    denseOutput: true,
     denseOutputErrorEstimator: true,
     denseComponents: [],
     interpolationFormulaDegree: 4,
