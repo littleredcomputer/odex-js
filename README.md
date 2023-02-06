@@ -16,110 +16,94 @@ is very similar.)
 ##### One first-order equation
 
 The simplest possible example would be y&prime; = y, with y(0) = 1: we expect the
-solution y(x) = exp(x). First we create a solver object, telling how many
-independent variables there are in the system (in this case just one).
+solution y(x) = exp(x). First we create a function to represent this equation:
 
 ```js
-var odex = require('odex');
-var s = new odex.Solver(1);
-```
-
-To represent the differential equation, we write a
-routine that computes y&prime; given y at the point x. For this example it's very
-simple:
-
-```js
-var f = function(x, y) {
+function yprime(x, y) {
   return y;
 }
 ```
-
 Since we asked for one independent variable, `y` is an array of length 1.
 We return an array of the same size.
 
-
-We can solve the equation by supplying the initial data and the start
-and endpoints. Let's find y(1):
-
+Next we create a solver object, telling how many
+independent variables there are in the system (in this case just one).
 ```js
-s.solve(f,
-        0,    // initial x value
-        [1],  // initial y values (just one in this example)
-        1);   // final x value
-// { y: [ 2.7182817799042955 ],
-//   outcome: 0,
+var odex = require('odex');
+var s = new odex.Solver(f, 1);
+```
+Calling `integrate` on the solver object, supplying the initial conditions
+x<sub>0</sub> and y<sub>0</sub> = f(x<sub>0</sub>) will return a
+solution function we can use to obtain y values at different points.
+In this case, we supply the initial data f(0) = 1, and then ask for the
+solution `f(1)`. We expect to find <i>e</i>
+```js
+var f = s.integrate(0, [1])
+f(1)
+// [ 2.7182816547852937 ]
+```
+Pretty close! If you want more precision, we can create a Solver
+object with a higher precision like this:
+```js
+f = new o.Solver(yprime, 1, { absoluteTolerance: 1e-10 }).integrate(0, [1]); f(1)
+// [ 2.7182817887690183 ]
+```
+
+ODEX produces a ordered stream of integration steps, and the solution
+function `f` traverses this stream to apply its argument, so it is a
+requirement that the arguments to f be increasing.
+
+There's another interface to the solution, which takes a callback
+function you supply which is invoked with each integration step.
+The function is called with parameters `x0, x1, y1`, and `f`, where
+y1 = f(x1) and the function f can be used to find solution values
+in the interval [x0, x1]. The callback intervals will have varying
+sizes depending on the problem and parameters, but will be contiguous.
+```js
+new o.Solver(yprime, 1).solve(0, [1], 2, (x0, x1, y1, f) => console.log(x0,x1,y1))
+// 0 0.0001 [ 1.0001000050001667 ]
+// 0.0001 0.000877739983046304 [ 1.0008781253095156 ]
+// 0.000877739983046304 0.006926534795334954 [ 1.0069505787190927 ]
+// 0.006926534795334954 0.053970430542934406 [ 1.055453392180813 ]
+// 0.053970430542934406 0.33152917907160984 [ 1.3930967925910038 ]
+// 0.33152917907160984 1.3856957995736772 [ 3.997606273502324 ]
+// 1.3856957995736772 2 [ 7.389053607394767 ]
+// {
+//   y: [ 7.389053607394767 ],
 //   nStep: 7,
-//   xEnd: 1,
+//   xEnd: 2,
 //   nAccept: 7,
 //   nReject: 0,
-//   nEval: 75 }
+//   nEval: 101
+// }
 ```
-
-Not bad: the answer `y[1]` is close to *e*. It would be closer if we requested
-more precision. When you create a new `Solver` object, it is
-equipped with a number of properties you can change to control the integration.
-You can change a property and re-run the solution:
-
+If you prefer the callback approach, you can use the convenience function
+`grid` to arrange for the output to come at a fixed interval rather than
+at the varying integration stepsize:
 ```js
-s.absoluteTolerance = s.relativeTolerance = 1e-10;
-s.solve(f, 0, [1], 1).y
-// [ 2.7182818284562535 ]
-Math.exp(1) - 2.7182818284562535
-// 2.7915447731174936e-12
-```
-
-##### Integration callback
-You can supply a callback function that runs during the integration to supply intermediate
-points of the integration as it proceeds. The callback function is an optional
-parameter to `solve`, which receives the step number, x0, x1 and y(x1). (x0
-and x1 represent the interval covered in this integration step).
-
-```js
-s.solve(f, 0, [1], 1, function(n,x0,x1,y) {
-  console.log(n,x0,x1,y);
-}).y
-// 1 0 0 [ 1 ]
-// 2 0 0.0001 [ 1.0001000050001667 ]
-// 3 0.0001 0.0007841772783189289 [ 1.000784484825706 ]
-// 4 0.0007841772783189289 0.004832938716978181 [ 1.0048446362021166 ]
-// 5 0.004832938716978181 0.01913478583589434 [ 1.0193190291261103 ]
-// 6 0.01913478583589434 0.0937117110731088 [ 1.0982430889534374 ]
-// 7 0.0937117110731088 0.2862232977213724 [ 1.3313897183518322 ]
-// 8 0.2862232977213724 0.7103628434248046 [ 2.034729412908106 ]
-// 9 0.7103628434248046 1 [ 2.7182818284562535 ]
-// [ 2.7182818284562535 ]
-```
-
-You will observe that `odex` has chosen its own grid points for evaluation.
-Adaptive step size is one of the nicest features of this library: you don't
-have to worry about it too much.
-
-##### Dense Output
-However, you will often want to sample the data at points of your own choosing.
-When you request `denseOutput` in the `Solver` parameters, the function you
-supply to solve receives a fifth argument which is a closure which you can call to obtain
-very accurate y values in the interval [x0, x1].  You call this closure with
-the index (within the y vector) of the component you want to evaluate, and the
-x value in [x0, x1] where you want to find that y value. One common use case
-for this is to obtain otuput at evenly spaced points. To this end, we supply a
-canned callback `grid` which you can use for this:
-
-```js
-s.denseOutput = true;  // request interpolation closure in solution callback
-s.solve(f, 0, [1], 1, s.grid(0.2, function(x,y) {
-  console.log(x,y);
-}));
+s = new o.Solver(yprime, 1)
+s.solve(0, [1], 2, s.grid(0.2, (x, y) => console.log(x,y)))
 // 0 [ 1 ]
 // 0.2 [ 1.2214027470178732 ]
-// 0.4 [ 1.4918240050068732 ]
-// 0.6 [ 1.8221161568592519 ]
-// 0.8 [ 2.2255378426172316 ]
-// 1 [ 2.7182804587510203 ]
-// [ 2.7182804587510203 ]
+// 0.4 [ 1.4918246605775702 ]
+// 0.6000000000000001 [ 1.8221186375109242 ]
+// 0.8 [ 2.225540718641694 ]
+// 1 [ 2.7182815718767284 ]
+// 1.2 [ 3.320116638690292 ]
+// 1.4 [ 4.055199677746687 ]
+// 1.5999999999999999 [ 4.953027837100804 ]
+// 1.7999999999999998 [ 6.04964189926157 ]
+// 1.9999999999999998 [ 7.389053607394765 ]
+// {
+//   y: [ 7.389053607394767 ],
+//   nStep: 7,
+//   xEnd: 2,
+//   nAccept: 7,
+//   nReject: 0,
+//   nEval: 303
+// }
 ```
 
-To see how you could use the dense output feature yourself, take a look at
-the source to grid.
 ##### A system of two first order equations
 Note that in all these examples, `y` is a vector: this software is designed to
 solve systems. Let's work with the [Lotka-Volterra][lv] predator-prey system.
@@ -136,7 +120,7 @@ We write a function LV which binds the constants of the population system
 To represent this system we can write:
 
 ```js
-var LotkaVolterra = function(a, b, c, d) {
+function LotkaVolterra(a, b, c, d) {
   return function(x, y) {
     return [
       a * y[0] - b * y[0] * y[1],
@@ -153,10 +137,11 @@ at time 6, if the state at time zero is {y<sub>0</sub> = 1, y<sub>1</sub>
 = 1}:
 
 ```js
-s = new odex.Solver(2);
-s.solve(LotkaVolterra(2/3, 4/3, 1, 1), 0, [1, 1], 6).y
-// [ 1.6542774481418214, 0.3252864486771545 ]
-````
+s = new odex.Solver(LotkaVolterra(2/3, 4/3, 1, 1), 2);
+f = s.integrate(0, [1, 1])
+f(6)
+// [ 1.654269726022535, 0.325291085566411 ]
+```
 To see more of this system of equations in action, you can visit a
 [demo page][lvdemo] which allows you to vary the initial conditions
 with the mouse.
