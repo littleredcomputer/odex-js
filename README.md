@@ -45,7 +45,8 @@ f(1)
 Pretty close! If you want more precision, we can create a Solver
 object with a higher precision like this:
 ```js
-f = new o.Solver(yprime, 1, { absoluteTolerance: 1e-10 }).integrate(0, [1]); f(1)
+f = new odex.Solver(yprime, 1, { absoluteTolerance: 1e-10 }).integrate(0, [1])
+f(1)
 // [ 2.7182817887690183 ]
 ```
 
@@ -60,7 +61,7 @@ y1 = f(x1) and the function f can be used to find solution values
 in the interval [x0, x1]. The callback intervals will have varying
 sizes depending on the problem and parameters, but will be contiguous.
 ```js
-new o.Solver(yprime, 1).solve(0, [1], 2, (x0, x1, y1, f) => console.log(x0,x1,y1))
+new odex.Solver(yprime, 1).solve(0, [1], 2, (x0, x1, y1, f) => console.log(x0,x1,y1))
 // 0 0.0001 [ 1.0001000050001667 ]
 // 0.0001 0.000877739983046304 [ 1.0008781253095156 ]
 // 0.000877739983046304 0.006926534795334954 [ 1.0069505787190927 ]
@@ -81,7 +82,7 @@ If you prefer the callback approach, you can use the convenience function
 `grid` to arrange for the output to come at a fixed interval rather than
 at the varying integration stepsize:
 ```js
-s = new o.Solver(yprime, 1)
+s = new odex.Solver(yprime, 1)
 s.solve(0, [1], 2, s.grid(0.2, (x, y) => console.log(x,y)))
 // 0 [ 1 ]
 // 0.2 [ 1.2214027470178732 ]
@@ -102,6 +103,23 @@ s.solve(0, [1], 2, s.grid(0.2, (x, y) => console.log(x,y)))
 //   nReject: 0,
 //   nEval: 303
 // }
+```
+However, please note that you can also do this easily with
+the `integrate` interface, with your own `for` loop:
+```js
+f = s.integrate(0, [1])
+for (let x = 0; x <= 1; x += 0.1) console.log(x, f(x))
+// 0 [ 1 ]
+// 0.1 [ 1.1051709120288693 ]
+// 0.2 [ 1.2214027470178732 ]
+// 0.30000000000000004 [ 1.3498588017720885 ]
+// 0.4 [ 1.4918246699903248 ]
+// 0.5 [ 1.6487211893389364 ]
+// 0.6 [ 1.8221186884324072 ]
+// 0.7 [ 2.013752579176383 ]
+// 0.7999999999999999 [ 2.225540786295286 ]
+// 0.8999999999999999 [ 2.4596029539672823 ]
+// 0.9999999999999999 [ 2.7182816547852937 ]
 ```
 
 ##### A system of two first order equations

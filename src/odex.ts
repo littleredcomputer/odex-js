@@ -67,8 +67,8 @@ type FinalStepOutcome = {
 export type SolutionSegment = {
   x0: number,              // f is defined on [x0, x1]
   x1: number,
-  y: number[],             // y'(x1)
-  f: DenseOutputFunction,  // f : x -> y'(x)
+  y: number[],             // y(x1)
+  f: DenseOutputFunction,  // f : x -> y(x)
 }
 
 export class Solver {
@@ -690,12 +690,12 @@ export class Solver {
    * @return interpolation function valid on a monotonically increasing
    *     argument sequence
    */
-  public integrate(x0: number, y0: number[]) {
+  public integrate(x0: number, y0: number[]): (x?: number) => number[] {
     if (!this.options.denseOutput) throw new Error('integrate interface requires denseOutput')
     const components = this.options.denseComponents
     const segments = this.solutionSegments(x0, y0)
     let s: IteratorResult<SolutionSegment> = segments.next()
-    return (x?: number) => {
+    return (x?: number): number[] => {
       if (x === undefined) {
         segments.next(false)
         return []

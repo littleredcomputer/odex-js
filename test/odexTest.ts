@@ -18,7 +18,7 @@
  */
 
 import { Solver, Derivative, Options } from '../src/odex'
-import assert = require('assert')
+import { expect } from 'chai'
 
 describe('Odex', () => {
   let NewSolver = (f: Derivative, n: number, o?: Partial<Options>) => {
@@ -50,19 +50,19 @@ describe('Odex', () => {
   ]
 
   describe('stepSizeSequence', () => {
-    it('is correct for Type 1', () => assert.deepEqual([2, 4, 6, 8, 10, 12, 14, 16], Solver.stepSizeSequence(1, 8)))
-    it('is correct for Type 2', () => assert.deepEqual([2, 4, 8, 12, 16, 20, 24, 28], Solver.stepSizeSequence(2, 8)))
-    it('is correct for Type 3', () => assert.deepEqual([2, 4, 6, 8, 12, 16, 24, 32], Solver.stepSizeSequence(3, 8)))
-    it('is correct for Type 4', () => assert.deepEqual([2, 6, 10, 14, 18, 22, 26, 30], Solver.stepSizeSequence(4, 8)))
-    it('is correct for Type 5', () => assert.deepEqual([4, 8, 12, 16, 20, 24, 28, 32], Solver.stepSizeSequence(5, 8)))
-    it('throws for a bad Type', () => assert.throws(() => Solver.stepSizeSequence(6, 8), Error))
-    it('throws for a bad Type', () => assert.throws(() => Solver.stepSizeSequence(0, 8), Error))
+    it('is correct for Type 1', () => expect(Solver.stepSizeSequence(1, 8)).to.deep.equal([2, 4, 6, 8, 10, 12, 14, 16]))
+    it('is correct for Type 2', () => expect(Solver.stepSizeSequence(2, 8)).to.deep.equal([2, 4, 8, 12, 16, 20, 24, 28]))
+    it('is correct for Type 3', () => expect(Solver.stepSizeSequence(3, 8)).to.deep.equal([2, 4, 6, 8, 12, 16, 24, 32]))
+    it('is correct for Type 4', () => expect(Solver.stepSizeSequence(4, 8)).to.deep.equal([2, 6, 10, 14, 18, 22, 26, 30]))
+    it('is correct for Type 5', () => expect(Solver.stepSizeSequence(5, 8)).to.deep.equal([4, 8, 12, 16, 20, 24, 28, 32]))
+    it('throws for a bad Type', () => expect(() => Solver.stepSizeSequence(6, 8)).to.throw(Error))
+    it('throws for a bad Type', () => expect(() => Solver.stepSizeSequence(0, 8)).to.throw(Error))
   })
   describe('Van der Pol equation', () => {
     const tol = 1e-5
     const y2 = NewSolver(vanDerPol(0.1), 2).integrate(0, [2, 0])(2)
-    it('worked for y (new interface)', () => assert(Math.abs(y2[0] + 1.58184) < tol))
-    it('worked for y\' (new interface)', () => assert(Math.abs(y2[1] - 0.978449) < tol))
+    it('worked for y (new interface)', () => expect(y2[0]).to.be.closeTo(-1.58184, tol))
+    it('worked for y\' (new interface)', () => expect(y2[1]).to.be.closeTo(0.978449, tol))
   })
   describe('Van der Pol equation w/o dense output', () => {
     const tol = 1e-5
@@ -76,8 +76,8 @@ describe('Odex', () => {
 
     const y0 = [2, 0]
     const { y: [y1, y1p] } = s.solve(0, y0, 2)
-    it('worked for y', () => assert(Math.abs(y1 + 1.58184) < tol * 10))
-    it(`worked for y'`, () => assert(Math.abs(y1p - 0.978449) < tol * 10))
+    it('worked for y', () => expect(y1).to.be.closeTo(-1.58184, tol * 10))
+    it(`worked for y'`, () => expect(y1p).to.be.closeTo(0.978449, tol * 10))
   })
   describe(`y' = y, (exp)`, () => {
     const tol = 1e-8
@@ -88,27 +88,27 @@ describe('Odex', () => {
     })
     let y0 = [1]
     let { y: [y1] } = s.solve(0, y0, 1)
-    it('worked for y', () => assert(Math.abs(y1 - Math.exp(1)) < tol * 10))
+    it('worked for y', () => expect(y1).to.be.closeTo(Math.exp(1), tol * 10))
   })
   describe('y" = -y (sine/cosine)', () => {
     let s = NewSolver(trig, 2, { denseOutput: false })
     let y0 = [0, 1]
     let { y: [y1, y1p] } = s.solve(0, y0, 1)
-    it('worked for y', () => assert(Math.abs(y1 - Math.sin(1)) < 1e-5))
-    it(`worked for y'`, () => assert(Math.abs(y1p - Math.cos(1)) < 1e-5))
+    it('worked for y', () => expect(y1).to.be.closeTo(Math.sin(1), 1e-5))
+    it(`worked for y'`, () => expect(y1p).to.be.closeTo(Math.cos(1), 1e-5))
 
     // test for correct operation in the negative x direction
     let b = s.solve(0, y0, -1)
-    it('worked for y (backwards)', () => assert(Math.abs(b.y[0] - Math.sin(-1)) < 1e-5))
-    it(`worked for y' (backwards)`, () => assert(Math.abs(b.y[1] - Math.cos(-1)) < 1e-5))
+    it('worked for y (backwards)', () => expect(b.y[0]).to.be.closeTo(Math.sin(-1), 1e-5))
+    it(`worked for y' (backwards)`, () => expect(b.y[1]).to.be.closeTo(Math.cos(-1), 1e-5))
 
     let c = s.solve(0, y0, 10)
-    it('worked for y', () => assert(Math.abs(c.y[0] - Math.sin(10)) < 1e-4))
-    it(`worked for y'`, () => assert(Math.abs(c.y[1] - Math.cos(10)) < 1e-4))
+    it('worked for y', () => expect(c.y[0]).to.be.closeTo(Math.sin(10), 1e-4))
+    it(`worked for y'`, () => expect(c.y[1]).to.be.closeTo(Math.cos(10), 1e-4))
 
     let cb = s.solve(0, y0, -10)
-    it('worked for y (backwards)', () => assert(Math.abs(cb.y[0] - Math.sin(-10)) < 1e-4))
-    it(`worked for y' (backwards)`, () => assert(Math.abs(cb.y[1] - Math.cos(-10)) < 1e-4))
+    it('worked for y (backwards)', () => expect(cb.y[0]).to.be.closeTo(Math.sin(-10), 1e-4))
+    it(`worked for y' (backwards)`, () => expect(cb.y[1]).to.be.closeTo(Math.cos(-10), 1e-4))
   })
   describe('Airy equation y" = xy', () => {
     let s = NewSolver(airy, 2, {
@@ -117,14 +117,14 @@ describe('Odex', () => {
     })
     let y0 = [0.3550280539, -0.2588194038]
     let a = s.solve(0, y0, 1)
-    it('1st kind: works for y', () => assert(Math.abs(a.y[0] - 0.1352924163) < 1e-5))
-    it(`1st kind: works for y'`, () => assert(Math.abs(a.y[1] + 0.1591474413) < 1e-5))
+    it('1st kind: works for y', () => expect(a.y[0]).to.be.closeTo(0.1352924163, 1e-5))
+    it(`1st kind: works for y'`, () => expect(a.y[1]).to.be.closeTo(- 0.1591474413, 1e-5))
     // Airy equation of the second kind (or "Bairy equation"); this has different
     // initial conditions
     y0 = [0.6149266274, 0.4482883574]
     let b = s.solve(0, y0, 1)
-    it('2nd kind: works for y', () => assert(Math.abs(b.y[0] - 1.207423595) < 1e-5))
-    it(`2nd kind: works for y'`, () => assert.ok(Math.abs(b.y[1] - 0.9324359334) < 1e-5))
+    it('2nd kind: works for y', () => expect(b.y[0]).to.be.closeTo(1.207423595, 1e-5))
+    it(`2nd kind: works for y'`, () => expect(b.y[1]).to.be.closeTo(0.9324359334, 1e-5))
   })
   describe('Bessel equation x^2 y" + x y\' + (x^2-a^2) y = 0', () => {
     let s = NewSolver(bessel(1), 2, {
@@ -133,39 +133,39 @@ describe('Odex', () => {
     })
     let y1 = [0.4400505857, 0.3251471008]
     let y2 = s.solve(1, y1, 2)
-    it('y', () => assert(Math.abs(y2.y[0] - 0.5767248078) < 1e-5))
-    it(`y"`, () => assert(Math.abs(y2.y[1] + 0.06447162474) < 1e-5))
+    it('y', () => expect(y2.y[0]).to.be.closeTo(0.5767248078, 1e-5))
+    it(`y"`, () => expect(y2.y[1]).to.be.closeTo(-0.06447162474, 1e-5))
     let y3 = s.solve(1, y1, 2)
-    it('y (small step size)', () => assert(Math.abs(y3.y[0] - 0.5767248078) < 1e-6))
-    it(`y' (small step size)`, () => assert(Math.abs(y3.y[1] + 0.06447162474) < 1e-6))
+    it('y (small step size)', () => expect(y3.y[0]).to.be.closeTo(0.5767248078, 1e-6))
+    it(`y' (small step size)`, () => expect(y3.y[1]).to.be.closeTo(-0.06447162474, 1e-6))
     s = NewSolver(bessel(1), 2, {
       absoluteTolerance: 1e-12,
       relativeTolerance: 1e-12,
       denseOutput: false
     })
     let y4 = s.solve(1, y1, 2)
-    it('y (low tolerance)', () => assert(Math.abs(y4.y[0] - 0.5767248078) < 1e-10))
-    it('y\' (low tolerance)', () => assert(Math.abs(y4.y[1] + 0.06447162474) < 1e-10))
+    it('y (low tolerance)', () => expect(y4.y[0]).to.be.closeTo(0.5767248078, 1e-10))
+    it('y\' (low tolerance)', () => expect(y4.y[1]).to.be.closeTo(-0.06447162474, 1e-10))
   })
   describe('max step control', () => {
     let s = NewSolver(vanDerPol(0.1), 2, {
       maxSteps: 2,
       denseOutput: false,
     })
-    it('reports correct error', () => assert.throws(() => {
+    it('reports correct error', () => expect(() => {
       s.solve(0, [2, 0], 10)
-    }, Error('maximum allowed steps exceeded: 2')))
+    }).to.throw(/maximum allowed steps exceeded: 2/))
   })
   describe('cosine (observer)', () => {
     let o = NewSolver(trig, 2).solve(0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
       const value = y[0]
-      it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.cos(x)) < 1e-4))
+      it('is accurate at grid point ' + x, () => expect(value).to.be.closeTo(Math.cos(x), 1e-4))
     })
   })
   describe('sine (observer)', () => {
     let o = NewSolver(trig, 2).solve(0, [0, 1], 2 * Math.PI, (xOld, x, y) => {
       const value = y[0]
-      it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.sin(x)) < 1e-5))
+      it('is accurate at grid point ' + x, () => expect(value).to.be.closeTo(Math.sin(x), 1e-5))
     })
   })
   describe('cosine/sine (dense output)', () => {
@@ -173,8 +173,8 @@ describe('Odex', () => {
     let o = s.solve(0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
       var [c, ms] = y
       it (`cos;-sin(${x}) ~= ${y} ok`, () => {
-        assert(Math.abs(c - Math.cos(x)) < 1e-5)
-        assert(Math.abs(ms + Math.sin(x)) < 1e-5)
+        expect(c).to.be.closeTo(Math.cos(x), 1e-5)
+        expect(ms).to.be.closeTo(-Math.sin(x), 1e-5)
       })
     })
   })
@@ -184,8 +184,8 @@ describe('Odex', () => {
     for (let x = 0; x < 2 * Math.PI; x += 0.1) {
       const y = f(x)
       it(`cos;-sin(${x}) ~= ${y} ok`, () => {
-        assert(Math.abs(y[0] - Math.cos(x)) < 1e-5)
-        assert(Math.abs(y[1] + Math.sin(x)) < 1e-5)
+        expect(y[0]).to.be.closeTo(Math.cos(x), 1e-5)
+        expect(y[1]).to.be.closeTo(-Math.sin(x), 1e-5)
       })
     }
     f()
@@ -197,9 +197,9 @@ describe('Odex', () => {
     let o = s.solve(0, [1, 0], 2 * Math.PI, () => {
       // console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)))
     })
-    it('evaluated f the correct number of times', () => assert(o.nEval === 183))
-    it('took the correct number of steps', () => assert(o.nStep === 8))
-    it('had no rejection steps', () => assert(o.nReject === 0))
+    it('evaluated f the correct number of times', () => expect(o.nEval).to.equal(183))
+    it('took the correct number of steps', () => expect(o.nStep).to.equal(8))
+    it('had no rejection steps', () => expect(o.nReject).to.equal(0))
   })
   describe('cosine (dense output, grid evaluation)', () => {
     let s = NewSolver(trig, 2)
@@ -211,15 +211,15 @@ describe('Odex', () => {
         let v = f(0, current)
         let vp = f(1, current)
         it('is accurate at interpolated grid point',
-          () => assert(Math.abs(v - Math.cos(k)) < 1e-5))
+          () => expect(v).to.be.closeTo(Math.cos(k), 1e-5))
         it('derivative is accurate at interpolated grid point',
-          () => assert(Math.abs(vp + Math.sin(k)) < 1e-5))
+          () => expect(vp).to.be.closeTo(-Math.sin(k), 1e-5))
         current += grid
       }
     })
-    it('evaluated f the correct number of times', () => assert(o.nEval === 101))
-    it('took the correct number of steps', () => assert(o.nStep === 7))
-    it('had no rejection steps', () => assert(o.nReject === 0))
+    it('evaluated f the correct number of times', () => expect(o.nEval).to.equal(101))
+    it('took the correct number of steps', () => expect(o.nStep).to.equal(7))
+    it('had no rejection steps', () => expect(o.nReject).to.equal(0))
   })
   describe('cosine (observer, long range)', () => {
     let s = NewSolver(trig, 2, {
@@ -227,53 +227,53 @@ describe('Odex', () => {
     })
     let o = s.solve(0, [1, 0], 16 * Math.PI, (xOld, x, y) => {
       const value = y[0]
-      it('is accurate at grid point ' + x, () => assert(Math.abs(value - Math.cos(x)) < 2e-4))
+      it('is accurate at grid point ' + x, () => expect(value).to.be.closeTo(Math.cos(x), 2e-4))
     })
-    it('evaluated f the correct number of times', () => assert(o.nEval === 920))
-    it('took the correct number of steps', () => assert(o.nStep === 34))
-    it('had no rejection steps', () => assert(o.nReject === 0))
+    it('evaluated f the correct number of times', () => expect(o.nEval).to.equal(920))
+    it('took the correct number of steps', () => expect(o.nStep).to.equal(34))
+    it('had no rejection steps', () => expect(o.nReject).to.equal(0))
   })
   describe('bogus parameters', () => {
     it('throws if maxSteps is <= 0', () => {
-      assert.throws(() => {
+      expect(() => {
         NewSolver(trig, 2, {
           maxSteps: -2
         })
-      }, Error)
+      }).to.throw(Error)
     })
     it('throws if maxExtrapolationColumns is <= 2', () => {
-      assert.throws(() => {
+      expect(() => {
         NewSolver(trig, 2, {
           maxExtrapolationColumns: 1
         })
-      }, Error)
+      }).to.throw(Error)
     })
     it('throws for dense-output-incompatible step sequence', () => {
-      assert.throws(() => {
+      expect(() => {
         NewSolver(trig, 2, {stepSizeSequence: 1})
-      }, Error)
+      }).to.throw(Error)
     })
     it('throws when dense output is requested but no observer function is given', () => {
       let s = NewSolver(trig, 2)
-      assert.throws(() => {
+      expect(() => {
         s.solve(0, [1, 0], 1)
-      }, Error)
+      }).to.throw(Error)
     })
     it('throws for bad interpolation formula degree', () => {
-      assert.throws(() => { NewSolver(trig, 2, { interpolationFormulaDegree: 99 }) }, Error)
+      expect(() => { NewSolver(trig, 2, { interpolationFormulaDegree: 99 }) }).to.throw(Error)
     })
     it('throws for bad uRound', () => {
-      assert.throws(() => { NewSolver(trig, 2, { uRound: Math.PI }) }, Error)
+      expect(() => { NewSolver(trig, 2, { uRound: Math.PI }) }).to.throw(Error)
     })
     it('throws for bad dense component', () => {
-      assert.throws(() => { NewSolver(trig, 2, { denseComponents: [5] }) }, Error)
+      expect(() => { NewSolver(trig, 2, { denseComponents: [5] }) }).to.throw(Error)
     })
     it('throws when dense interpolator called but denseOutput is false', () => {
-      assert.throws(() => {
+      expect(() => {
         NewSolver((x, y) => y, 1, { denseOutput: false }).solve(0, [1], 1, (xOld, x, y, dense) => {
           dense(0, xOld)
         })
-      }, Error)
+      }).to.throw(Error)
     })
   })
   describe('requesting specific dense output component', () => {
@@ -291,8 +291,8 @@ describe('Odex', () => {
       })
       return diff
     }
-    it('works for the selected component', () => assert(component(1) < 1e-5))
-    it('throws for unselected component', () => assert.throws(() => component(0), Error))
+    it('works for the selected component', () => expect(component(1)).to.be.lessThan(1e-5))
+    it('throws for unselected component', () => expect(() => component(0)).to.throw(Error))
   })
   describe('lotka-volterra equations', () => {
     // Validation data from Mathematica:
@@ -324,16 +324,17 @@ describe('Odex', () => {
     let s = NewSolver(lotkaVolterra(2 / 3, 4 / 3, 1, 1), 2)
     let i = 0
     s.solve(0, [1, 1], 15, s.grid(1, (x, y) => {
-      let diff = Math.abs(y[0] - data[i][0])
-      it('works for y1 at grid point ' + i, () => assert(diff < 1e-4))
+      const y0 = y[0]
+      const j = i
+      it('works for y1 at grid point ' + i, () => expect(y0).to.be.closeTo(data[j][0], 1e-4))
       ++i
     }))
     const f = s.integrate(0, [1, 1])
     for (let x = 0; x < data.length; ++x) {
       const y = f(x)
       it(`works at grid point ${x} (new interface)`, () => {
-        assert(Math.abs(y[0] - data[x][0]) < 1e-4)
-        assert(Math.abs(y[1] - data[x][1]) < 1e-4)
+        expect(y[0]).to.be.closeTo(data[x][0], 1e-4)
+        expect(y[1]).to.be.closeTo(data[x][1], 1e-4)
       })
     }
     f()
@@ -347,10 +348,11 @@ describe('Odex', () => {
       relativeTolerance: [1e-6]
     })
     let o = s.solve(left, [Math.sin(1 / left)], 2, s.grid(0.1, (x, y) => {
+      let y0 = y[0]
       let diff = Math.abs(y[0] - Math.sin(1 / x))
-      it('works for y at grid point ' + x, () => assert(diff < 1e-4))
+      it('works for y at grid point ' + x, () => expect(y0).to.be.closeTo(Math.sin(1 / x), 1e-4))
     }))
-    it('rejected some steps', () => assert(o.nReject > 0))
+    it('rejected some steps', () => expect(o.nReject).to.be.greaterThan(0))
   })
   describe('Arenstorf orbit', () => {
     const mu = 0.012277471
@@ -381,7 +383,7 @@ describe('Odex', () => {
         it('returns to initial conditions at time ' + x + ' coordinate ' + i, () => {
           // Measure relative error (except for the coordinates with zero initial value,
           // use absolute error for those)
-          assert(Math.abs(v[i] - y0[i]) / (y0[i] == 0 ? 1 : y0[i]) < 0.0001)
+          expect(Math.abs(v[i] - y0[i]) / (y0[i] == 0 ? 1 : y0[i])).to.be.lessThan(0.0001)
         })
       }
     }))
@@ -458,8 +460,8 @@ describe('Odex', () => {
       const value = y.slice()
       it('agrees at grid point ' + t + ' : ' + value, () => {
         const [u, v] = expected[t]
-        assert(Math.abs(u - value[0]) / u < 3e-7)
-        assert(Math.abs(v - value[1]) / v < 3e-7)
+        expect(Math.abs(u - value[0]) / u).to.be.lessThan(3e-7)
+        expect(Math.abs(v - value[1]) / v).to.be.lessThan(3e-7)
       })
     }))
     const f = s.integrate(0, [1.5, 3])
@@ -467,17 +469,17 @@ describe('Odex', () => {
       const value = f(t)
       it(`agrees at grid point ${t} : ${value} (new interface)`, () => {
         const [u, v] = expected[t]
-        assert(Math.abs(u - value[0]) / u < 3e-7)
-        assert(Math.abs(v - value[1]) / v < 3e-7)
+        expect(Math.abs(u - value[0]) / u).to.be.lessThan(3e-7)
+        expect(Math.abs(v - value[1]) / v).to.be.lessThan(3e-7)
       })
     }
   })
   describe('Configuration debugging', () => {
     it('throws when you use grid without denseOutput', () => {
       let s = NewSolver((x, y) => y, 1, { denseOutput: false })
-      assert.throws(() => {
+      expect(() => {
         s.solve(0, [1], 1, s.grid(0.1, console.log))
-      }, /denseOutput/, 'expected recommendation to use denseOutput')
+      }).to.throw(/denseOutput/, 'expected recommendation to use denseOutput')
     })
   })
   describe('Solver object can be restarted', () => {
@@ -487,12 +489,27 @@ describe('Odex', () => {
       // each theta value
       it('works at grid point ' + theta, () => {
         let value = s.solve(0, [1, 0], theta).y
-        assert(Math.abs(value[0] - Math.cos(theta)) < 1e-4)
-        assert(Math.abs(value[1] + Math.sin(theta)) < 1e-4)
+        expect(value[0]).to.be.closeTo(Math.cos(theta), 1e-4)
+        expect(value[1]).to.be.closeTo(-Math.sin(theta), 1e-4)
       })
     }
   })
-  // add test: cannot rewind in integrate mode
+  describe('cannot rewind integrator interface', () => {
+    const s = NewSolver(trig, 2)
+    const f = s.integrate(0, [1, 0])
+    it('works at 5', () => {
+      expect(f(5)).to.be.ok
+    })
+    it('throws if we rewind to 1', () => {
+      expect(() => f(1)).to.throw(/backwards/)
+    })
+    it('lets us proceed to 6', () => {
+      expect(f(6)).to.be.ok
+    })
+    it('lets us close integrator', () => {
+      expect(f()).to.be.ok
+    })
+  })
   // long range integration
   // step size min max honored
 })
