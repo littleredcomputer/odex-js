@@ -695,12 +695,16 @@ export class Solver {
     const components = this.options.denseComponents
     const segments = this.solutionSegments(x0, y0)
     let s: IteratorResult<SolutionSegment> = segments.next()
+    let closed: boolean = false
     return (x?: number): number[] => {
       if (x === undefined) {
         segments.next(false)
+        closed = true
         return []
       } else if (x < s.value.x0) {
         throw new Error('cannot use interpolation function in backwards direction')
+      } else if (closed) {
+        throw new Error('cannot use interpolation function after closing integrator')
       } else {
         while (!s.done && x > s.value.x1) s = segments.next()
         const v = []
@@ -719,15 +723,12 @@ export class Solver {
    * the integrated value f(x1). If denseOutput is selected in the options,
    * an interpolation function is provided, valid over the closed interval.
    *
-   * Use of this interface switches on the denseOutput flag. You can still
-   * use denseComponents to restrict the y components for which dense output
-   * data is computed.
-   *
    * @param x initial independent coordinate
    * @param y0 initial value
    * @param xEnd optional end of integration interval
+   * @return generates a sequence of objects containing x0, x1, y and f properties
    */
-  private *solutionSegments(x: number, y0: number[], xEnd?: number): Generator<SolutionSegment> {
+  public *solutionSegments(x: number, y0: number[], xEnd?: number): Generator<SolutionSegment, undefined> {
     if (!Array.isArray(y0) || y0.length != this.n) throw new Error('y0 must be an array sized to the dimension of the problem')
     let y = y0.slice()
     let dz = Array(this.n)
@@ -898,7 +899,7 @@ export class Solver {
           const proceed = yield {
             x0: xOld,
             x1: x,
-            y: y,
+            y: y.slice(),
             f: result.densef ?? this.noDenseOutput
           };
           if (proceed === false) {

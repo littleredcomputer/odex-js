@@ -17,7 +17,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { Solver, Derivative, Options } from '../src/odex'
+import { Solver, Derivative, Options, SolutionSegment } from '../src/odex'
 import { expect } from 'chai'
 
 describe('Odex', () => {
@@ -158,23 +158,20 @@ describe('Odex', () => {
   })
   describe('cosine (observer)', () => {
     let o = NewSolver(trig, 2).solve(0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
-      const value = y[0]
-      it('is accurate at grid point ' + x, () => expect(value).to.be.closeTo(Math.cos(x), 1e-4))
+      it('is accurate at grid point ' + x, () => expect(y[0]).to.be.closeTo(Math.cos(x), 1e-4))
     })
   })
   describe('sine (observer)', () => {
     let o = NewSolver(trig, 2).solve(0, [0, 1], 2 * Math.PI, (xOld, x, y) => {
-      const value = y[0]
-      it('is accurate at grid point ' + x, () => expect(value).to.be.closeTo(Math.sin(x), 1e-5))
+      it('is accurate at grid point ' + x, () => expect(y[0]).to.be.closeTo(Math.sin(x), 1e-5))
     })
   })
   describe('cosine/sine (dense output)', () => {
     let s = NewSolver(trig, 2)
     let o = s.solve(0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
-      var [c, ms] = y
-      it (`cos;-sin(${x}) ~= ${y} ok`, () => {
-        expect(c).to.be.closeTo(Math.cos(x), 1e-5)
-        expect(ms).to.be.closeTo(-Math.sin(x), 1e-5)
+      it(`cos;-sin(${x}) ~= ${y} ok`, () => {
+        expect(y[0]).to.be.closeTo(Math.cos(x), 1e-5)
+        expect(y[1]).to.be.closeTo(-Math.sin(x), 1e-5)
       })
     })
   })
@@ -194,8 +191,9 @@ describe('Odex', () => {
     let s = NewSolver(trig, 2, {
       denseOutputErrorEstimator: false
     })
-    let o = s.solve(0, [1, 0], 2 * Math.PI, () => {
-      // console.log('dense cos n.e.', Math.abs(y[0]-Math.cos(x)))
+    let o = s.solve(0, [1, 0], 2 * Math.PI, (_, x, y) => {
+      it('found the right value component 0', () => expect(y[0]).to.be.closeTo(Math.cos(x), 1e-5))
+      it('found the right value component 1', () => expect(y[1]).to.be.closeTo(-Math.sin(x), 1e-5))
     })
     it('evaluated f the correct number of times', () => expect(o.nEval).to.equal(183))
     it('took the correct number of steps', () => expect(o.nStep).to.equal(8))
@@ -226,8 +224,7 @@ describe('Odex', () => {
       denseOutput: false
     })
     let o = s.solve(0, [1, 0], 16 * Math.PI, (xOld, x, y) => {
-      const value = y[0]
-      it('is accurate at grid point ' + x, () => expect(value).to.be.closeTo(Math.cos(x), 2e-4))
+      it('is accurate at grid point ' + x, () => expect(y[0]).to.be.closeTo(Math.cos(x), 2e-4))
     })
     it('evaluated f the correct number of times', () => expect(o.nEval).to.equal(920))
     it('took the correct number of steps', () => expect(o.nStep).to.equal(34))
@@ -250,7 +247,7 @@ describe('Odex', () => {
     })
     it('throws for dense-output-incompatible step sequence', () => {
       expect(() => {
-        NewSolver(trig, 2, {stepSizeSequence: 1})
+        NewSolver(trig, 2, { stepSizeSequence: 1 })
       }).to.throw(Error)
     })
     it('throws when dense output is requested but no observer function is given', () => {
@@ -324,9 +321,8 @@ describe('Odex', () => {
     let s = NewSolver(lotkaVolterra(2 / 3, 4 / 3, 1, 1), 2)
     let i = 0
     s.solve(0, [1, 1], 15, s.grid(1, (x, y) => {
-      const y0 = y[0]
       const j = i
-      it('works for y1 at grid point ' + i, () => expect(y0).to.be.closeTo(data[j][0], 1e-4))
+      it('works for y1 at grid point ' + i, () => expect(y[0]).to.be.closeTo(data[j][0], 1e-4))
       ++i
     }))
     const f = s.integrate(0, [1, 1])
@@ -348,9 +344,8 @@ describe('Odex', () => {
       relativeTolerance: [1e-6]
     })
     let o = s.solve(left, [Math.sin(1 / left)], 2, s.grid(0.1, (x, y) => {
-      let y0 = y[0]
       let diff = Math.abs(y[0] - Math.sin(1 / x))
-      it('works for y at grid point ' + x, () => expect(y0).to.be.closeTo(Math.sin(1 / x), 1e-4))
+      it('works for y at grid point ' + x, () => expect(y[0]).to.be.closeTo(Math.sin(1 / x), 1e-4))
     }))
     it('rejected some steps', () => expect(o.nReject).to.be.greaterThan(0))
   })
@@ -378,12 +373,12 @@ describe('Odex', () => {
     const numOrbits = 3
     let result = s.solve(0, y0, numOrbits * o, s.grid(o, (x, y) => {
       // Compute the relative error vs. y0
-      const v = y.slice()
       for (let i = 0; i < 4; ++i) {
+        let j = i
         it('returns to initial conditions at time ' + x + ' coordinate ' + i, () => {
           // Measure relative error (except for the coordinates with zero initial value,
           // use absolute error for those)
-          expect(Math.abs(v[i] - y0[i]) / (y0[i] == 0 ? 1 : y0[i])).to.be.lessThan(0.0001)
+          expect(Math.abs(y[j] - y0[j]) / (y0[j] == 0 ? 1 : y0[j])).to.be.lessThan(0.000075)
         })
       }
     }))
@@ -457,11 +452,10 @@ describe('Odex', () => {
       relativeTolerance: 1e-8
     })
     s.solve(0, [1.5, 3], 50, s.grid(1, (t, y) => {
-      const value = y.slice()
-      it('agrees at grid point ' + t + ' : ' + value, () => {
+      it('agrees at grid point ' + t + ' : ' + y, () => {
         const [u, v] = expected[t]
-        expect(Math.abs(u - value[0]) / u).to.be.lessThan(3e-7)
-        expect(Math.abs(v - value[1]) / v).to.be.lessThan(3e-7)
+        expect(Math.abs(u - y[0]) / u).to.be.lessThan(3e-7)
+        expect(Math.abs(v - y[1]) / v).to.be.lessThan(3e-7)
       })
     }))
     const f = s.integrate(0, [1.5, 3])
@@ -509,7 +503,42 @@ describe('Odex', () => {
     it('lets us close integrator', () => {
       expect(f()).to.be.ok
     })
+    it('cannot be used after closing', () => {
+      expect(() => f(6)).to.throw(/after closing/)
+      expect(() => f(7)).to.throw(/after closing/)
+    })
   })
-  // long range integration
-  // step size min max honored
+  describe('solution segment interface', () => {
+    const s = NewSolver(trig, 2)
+    const gen = s.solutionSegments(0, [1, 0])
+    const segments: (SolutionSegment|undefined)[] = []
+    for (let i = 0; i < 5; ++i) {
+      segments.push(gen.next().value)
+    }
+    let xOld = 0
+    for (let g of segments) {
+      it('is defined', () => expect(g).to.be.ok)
+      let h = g!
+      let xOldNow = xOld
+      it('segment beginning abuts previous segment end', () => expect(h.x0).to.equal(xOldNow))
+      it('segment ending is after segment beginning', () => expect(h.x1).to.be.greaterThan(h.x0))
+      it('the relayed value y1 agrees with f in component 0', () => expect(h.y[0]).to.equal(h.f(0, h.x1)))
+      it('the relayed value y1 agrees with f in component 1', () => expect(h.y[1]).to.equal(h.f(1, h.x1)))
+      xOld = h.x1
+    }
+  })
+  describe('max step size honored', () => {
+    const size = 0.001
+    const epsilon = 1e-15
+    const s = NewSolver(trig, 2, { maxStepSize: size, initialStepSize: size })
+    const gen = s.solutionSegments(0, [1, 0])
+    for (let i = 0; i < 10; ++i) {
+      let g = gen.next().value!
+      it(`has reasonable step size at step ${i}, and values are good`, () => {
+        expect(g.x1 - g.x0).to.be.within(0, size + epsilon)
+        expect(g.y[0]).to.be.closeTo(Math.cos(g.x1), 1e-5)
+        expect(g.y[1]).to.be.closeTo(-Math.sin(g.x1), 1e-5)
+      })
+    }
+  })
 })
