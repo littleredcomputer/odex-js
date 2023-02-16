@@ -185,6 +185,28 @@ There's also a [demo page][airydemo] for this equation too.
 You might also enjoy a demo of the [Lorenz attractor][lorenz] or
 [Van der Pol equation][vanderpol]!
 
+#### Raw Functions
+All the above examples have been written with a derivative function
+of the form `y' = f(x, y)`. There's a more efficient form, called
+*raw*, in which instead of returning an array, the derivative function
+fills in an array supplied in the third argument (and returns nothing).
+This form is more efficient as it shares memory with the integrator
+and avoids memory allocations. The Airy function above would be written:
+```js
+var airy2 = function(x, y, yp) {
+  yp[0] = y[1]
+  yp[1] = x * y[0]
+}
+```
+To use a function in this form, supply option `rawFunction: true`
+when creating the integrator, e.g.
+```js
+new Solver(airy2, 2, { rawFunction: true })
+```
+It's important to note that the arrays provided belong to the integrator;
+`y` must not be modified, and neither array should be read or written
+outside the scope of the derivative function itself.
+
 #### Tests
 This project comes with a mocha test suite. The suite contains other
 examples of second-order equations which have been translated to

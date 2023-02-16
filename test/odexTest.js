@@ -21,9 +21,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const odex_1 = require("../src/odex");
 const chai_1 = require("chai");
 describe('Odex', () => {
-    let NewSolver = (f, n, o) => {
-        return new odex_1.Solver(f, n, Object.assign({ maxSteps: 200 }, o));
-    };
     let airy = (x, y) => [y[1], x * y[0]];
     let vanDerPol = e => (x, y) => [
         y[1],
@@ -37,11 +34,19 @@ describe('Odex', () => {
         a * y[0] - b * y[0] * y[1],
         c * y[0] * y[1] - d * y[1]
     ];
+    let lotkaVolterraRaw = (a, b, c, d) => (x, y, yp) => {
+        yp[0] = a * y[0] - b * y[0] * y[1];
+        yp[1] = c * y[0] * y[1] - d * y[1];
+    };
     let trig = (x, y) => [y[1], -y[0]];
     let brusselator = (x, [y1, y2]) => [
         1 + y1 * y1 * y2 - 4 * y1,
         3 * y1 - y1 * y1 * y2
     ];
+    let brusselatorRaw = (x, [y1, y2], yp) => {
+        yp[0] = 1 + y1 * y1 * y2 - 4 * y1;
+        yp[1] = 3 * y1 - y1 * y1 * y2;
+    };
     describe('stepSizeSequence', () => {
         it('is correct for Type 1', () => (0, chai_1.expect)(odex_1.Solver.stepSizeSequence(1, 8)).to.deep.equal([2, 4, 6, 8, 10, 12, 14, 16]));
         it('is correct for Type 2', () => (0, chai_1.expect)(odex_1.Solver.stepSizeSequence(2, 8)).to.deep.equal([2, 4, 8, 12, 16, 20, 24, 28]));
@@ -53,13 +58,13 @@ describe('Odex', () => {
     });
     describe('Van der Pol equation', () => {
         const tol = 1e-5;
-        const y2 = NewSolver(vanDerPol(0.1), 2).integrate(0, [2, 0])(2);
+        const y2 = new odex_1.Solver(vanDerPol(0.1), 2).integrate(0, [2, 0])(2);
         it('worked for y (new interface)', () => (0, chai_1.expect)(y2[0]).to.be.closeTo(-1.58184, tol));
         it('worked for y\' (new interface)', () => (0, chai_1.expect)(y2[1]).to.be.closeTo(0.978449, tol));
     });
     describe('Van der Pol equation w/o dense output', () => {
         const tol = 1e-5;
-        const s = NewSolver(vanDerPol(0.1), 2, {
+        const s = new odex_1.Solver(vanDerPol(0.1), 2, {
             absoluteTolerance: tol,
             relativeTolerance: tol,
             initialStepSize: 0.01,
@@ -73,7 +78,7 @@ describe('Odex', () => {
     });
     describe(`y' = y, (exp)`, () => {
         const tol = 1e-8;
-        let s = NewSolver((x, y) => y, 1, {
+        let s = new odex_1.Solver((x, y) => y, 1, {
             absoluteTolerance: tol,
             relativeTolerance: tol,
             denseOutput: false,
@@ -83,7 +88,7 @@ describe('Odex', () => {
         it('worked for y', () => (0, chai_1.expect)(y1).to.be.closeTo(Math.exp(1), tol * 10));
     });
     describe('y" = -y (sine/cosine)', () => {
-        let s = NewSolver(trig, 2, { denseOutput: false });
+        let s = new odex_1.Solver(trig, 2, { denseOutput: false });
         let y0 = [0, 1];
         let { y: [y1, y1p] } = s.solve(0, y0, 1);
         it('worked for y', () => (0, chai_1.expect)(y1).to.be.closeTo(Math.sin(1), 1e-5));
@@ -100,7 +105,7 @@ describe('Odex', () => {
         it(`worked for y' (backwards)`, () => (0, chai_1.expect)(cb.y[1]).to.be.closeTo(Math.cos(-10), 1e-4));
     });
     describe('Airy equation y" = xy', () => {
-        let s = NewSolver(airy, 2, {
+        let s = new odex_1.Solver(airy, 2, {
             initialStepSize: 1e-4,
             denseOutput: false
         });
@@ -116,7 +121,7 @@ describe('Odex', () => {
         it(`2nd kind: works for y'`, () => (0, chai_1.expect)(b.y[1]).to.be.closeTo(0.9324359334, 1e-5));
     });
     describe('Bessel equation x^2 y" + x y\' + (x^2-a^2) y = 0', () => {
-        let s = NewSolver(bessel(1), 2, {
+        let s = new odex_1.Solver(bessel(1), 2, {
             initialStepSize: 1e-6,
             denseOutput: false
         });
@@ -127,7 +132,7 @@ describe('Odex', () => {
         let y3 = s.solve(1, y1, 2);
         it('y (small step size)', () => (0, chai_1.expect)(y3.y[0]).to.be.closeTo(0.5767248078, 1e-6));
         it(`y' (small step size)`, () => (0, chai_1.expect)(y3.y[1]).to.be.closeTo(-0.06447162474, 1e-6));
-        s = NewSolver(bessel(1), 2, {
+        s = new odex_1.Solver(bessel(1), 2, {
             absoluteTolerance: 1e-12,
             relativeTolerance: 1e-12,
             denseOutput: false
@@ -137,7 +142,7 @@ describe('Odex', () => {
         it('y\' (low tolerance)', () => (0, chai_1.expect)(y4.y[1]).to.be.closeTo(-0.06447162474, 1e-10));
     });
     describe('max step control', () => {
-        let s = NewSolver(vanDerPol(0.1), 2, {
+        let s = new odex_1.Solver(vanDerPol(0.1), 2, {
             maxSteps: 2,
             denseOutput: false,
         });
@@ -146,17 +151,17 @@ describe('Odex', () => {
         }).to.throw(/maximum allowed steps exceeded: 2/));
     });
     describe('cosine (observer)', () => {
-        let o = NewSolver(trig, 2).solve(0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
+        let o = new odex_1.Solver(trig, 2).solve(0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
             it('is accurate at grid point ' + x, () => (0, chai_1.expect)(y[0]).to.be.closeTo(Math.cos(x), 1e-4));
         });
     });
     describe('sine (observer)', () => {
-        let o = NewSolver(trig, 2).solve(0, [0, 1], 2 * Math.PI, (xOld, x, y) => {
+        let o = new odex_1.Solver(trig, 2).solve(0, [0, 1], 2 * Math.PI, (xOld, x, y) => {
             it('is accurate at grid point ' + x, () => (0, chai_1.expect)(y[0]).to.be.closeTo(Math.sin(x), 1e-5));
         });
     });
     describe('cosine/sine (dense output)', () => {
-        let s = NewSolver(trig, 2);
+        let s = new odex_1.Solver(trig, 2);
         let o = s.solve(0, [1, 0], 2 * Math.PI, (xOld, x, y) => {
             it(`cos;-sin(${x}) ~= ${y} ok`, () => {
                 (0, chai_1.expect)(y[0]).to.be.closeTo(Math.cos(x), 1e-5);
@@ -165,7 +170,22 @@ describe('Odex', () => {
         });
     });
     describe('cosine/sine (new interface)', () => {
-        let s = NewSolver(trig, 2, { absoluteTolerance: 1e-6 });
+        let s = new odex_1.Solver(trig, 2, { absoluteTolerance: 1e-6 });
+        let f = s.integrate(0, [1, 0]);
+        for (let x = 0; x < 2 * Math.PI; x += 0.1) {
+            const y = f(x);
+            it(`cos;-sin(${x}) ~= ${y} ok`, () => {
+                (0, chai_1.expect)(y[0]).to.be.closeTo(Math.cos(x), 1e-5);
+                (0, chai_1.expect)(y[1]).to.be.closeTo(-Math.sin(x), 1e-5);
+            });
+        }
+        f();
+    });
+    describe('cosine/sine (new interface, raw function)', () => {
+        let s = new odex_1.Solver((x, y, yp) => {
+            yp[0] = y[1];
+            yp[1] = -y[0];
+        }, 2, { absoluteTolerance: 1e-6, rawFunction: true });
         let f = s.integrate(0, [1, 0]);
         for (let x = 0; x < 2 * Math.PI; x += 0.1) {
             const y = f(x);
@@ -177,7 +197,7 @@ describe('Odex', () => {
         f();
     });
     describe('cosine (dense output, no error estimation)', () => {
-        let s = NewSolver(trig, 2, {
+        let s = new odex_1.Solver(trig, 2, {
             denseOutputErrorEstimator: false
         });
         let o = s.solve(0, [1, 0], 2 * Math.PI, (_, x, y) => {
@@ -189,7 +209,7 @@ describe('Odex', () => {
         it('had no rejection steps', () => (0, chai_1.expect)(o.nReject).to.equal(0));
     });
     describe('cosine (dense output, grid evaluation)', () => {
-        let s = NewSolver(trig, 2);
+        let s = new odex_1.Solver(trig, 2);
         const grid = 0.1;
         let current = 0.0;
         let o = s.solve(0, [1, 0], Math.PI / 2, (xOld, x, y, f) => {
@@ -207,7 +227,7 @@ describe('Odex', () => {
         it('had no rejection steps', () => (0, chai_1.expect)(o.nReject).to.equal(0));
     });
     describe('cosine (observer, long range)', () => {
-        let s = NewSolver(trig, 2, {
+        let s = new odex_1.Solver(trig, 2, {
             denseOutput: false
         });
         let o = s.solve(0, [1, 0], 16 * Math.PI, (xOld, x, y) => {
@@ -220,48 +240,48 @@ describe('Odex', () => {
     describe('bogus parameters', () => {
         it('throws if maxSteps is <= 0', () => {
             (0, chai_1.expect)(() => {
-                NewSolver(trig, 2, {
+                new odex_1.Solver(trig, 2, {
                     maxSteps: -2
                 });
             }).to.throw(Error);
         });
         it('throws if maxExtrapolationColumns is <= 2', () => {
             (0, chai_1.expect)(() => {
-                NewSolver(trig, 2, {
+                new odex_1.Solver(trig, 2, {
                     maxExtrapolationColumns: 1
                 });
             }).to.throw(Error);
         });
         it('throws for dense-output-incompatible step sequence', () => {
             (0, chai_1.expect)(() => {
-                NewSolver(trig, 2, { stepSizeSequence: 1 });
+                new odex_1.Solver(trig, 2, { stepSizeSequence: 1 });
             }).to.throw(Error);
         });
         it('throws when dense output is requested but no observer function is given', () => {
-            let s = NewSolver(trig, 2);
+            let s = new odex_1.Solver(trig, 2);
             (0, chai_1.expect)(() => {
                 s.solve(0, [1, 0], 1);
             }).to.throw(Error);
         });
         it('throws for bad interpolation formula degree', () => {
-            (0, chai_1.expect)(() => { NewSolver(trig, 2, { interpolationFormulaDegree: 99 }); }).to.throw(Error);
+            (0, chai_1.expect)(() => { new odex_1.Solver(trig, 2, { interpolationFormulaDegree: 99 }); }).to.throw(Error);
         });
         it('throws for bad uRound', () => {
-            (0, chai_1.expect)(() => { NewSolver(trig, 2, { uRound: Math.PI }); }).to.throw(Error);
+            (0, chai_1.expect)(() => { new odex_1.Solver(trig, 2, { uRound: Math.PI }); }).to.throw(Error);
         });
         it('throws for bad dense component', () => {
-            (0, chai_1.expect)(() => { NewSolver(trig, 2, { denseComponents: [5] }); }).to.throw(Error);
+            (0, chai_1.expect)(() => { new odex_1.Solver(trig, 2, { denseComponents: [5] }); }).to.throw(Error);
         });
         it('throws when dense interpolator called but denseOutput is false', () => {
             (0, chai_1.expect)(() => {
-                NewSolver((x, y) => y, 1, { denseOutput: false }).solve(0, [1], 1, (xOld, x, y, dense) => {
+                new odex_1.Solver((_, y) => y, 1, { denseOutput: false }).solve(0, [1], 1, (xOld, x, y, dense) => {
                     dense(0, xOld);
                 });
             }).to.throw(Error);
         });
     });
     describe('requesting specific dense output component', () => {
-        let s = NewSolver(trig, 2, {
+        let s = new odex_1.Solver(trig, 2, {
             denseComponents: [1] // we only want y', e.g., -sin(x), densely output
         });
         let component = (k) => {
@@ -305,7 +325,7 @@ describe('Odex', () => {
             [1.64389, 0.319706],
             [1.70715, 0.672033]
         ];
-        let s = NewSolver(lotkaVolterra(2 / 3, 4 / 3, 1, 1), 2);
+        let s = new odex_1.Solver(lotkaVolterra(2 / 3, 4 / 3, 1, 1), 2);
         let i = 0;
         s.solve(0, [1, 1], 15, s.grid(1, (x, y) => {
             const j = i;
@@ -321,12 +341,22 @@ describe('Odex', () => {
             });
         }
         f();
+        const t = new odex_1.Solver(lotkaVolterraRaw(2 / 3, 4 / 3, 1, 1), 2, { rawFunction: true });
+        i = 0;
+        let g = t.integrate(0, [1, 1]);
+        for (let x = 0; x < data.length; ++x) {
+            const y = g(x);
+            it(`works at grid point ${x} (new interface, raw function)`, () => {
+                (0, chai_1.expect)(y[0]).to.be.closeTo(data[x][0], 1e-4);
+                (0, chai_1.expect)(y[1]).to.be.closeTo(data[x][1], 1e-4);
+            });
+        }
     });
     describe(`Topologist's sine function`, () => {
         // Here we supply a differential equation designed to test the limits.
         // Let y = sin(1/x). Then y' = -cos(1/x) / x^2.
         const left = 0.005;
-        let s = NewSolver((x, y) => [-Math.cos(1 / x) / (x * x)], 1, {
+        let s = new odex_1.Solver((x, y) => [-Math.cos(1 / x) / (x * x)], 1, {
             absoluteTolerance: [1e-6],
             relativeTolerance: [1e-6]
         });
@@ -339,23 +369,21 @@ describe('Odex', () => {
     describe('Arenstorf orbit', () => {
         const mu = 0.012277471;
         const nu = 1 - mu;
-        function arenstorf(x, y) {
-            const [y1, y1p, y2, y2p] = y;
+        const arenstorf = (x, [y1, y1p, y2, y2p], yp) => {
             const D1 = Math.pow((Math.pow((y1 + mu), 2) + Math.pow(y2, 2)), (3 / 2));
             const D2 = Math.pow((Math.pow((y1 - nu), 2) + Math.pow(y2, 2)), (3 / 2));
-            return [
-                y1p,
-                y1 + 2 * y2p - nu * (y1 + mu) / D1 - mu * (y1 - nu) / D2,
-                y2p,
-                y2 - 2 * y1p - nu * y2 / D1 - mu * y2 / D2
-            ];
-        }
+            yp[0] = y1p;
+            yp[1] = y1 + 2 * y2p - nu * (y1 + mu) / D1 - mu * (y1 - nu) / D2;
+            yp[2] = y2p;
+            yp[3] = y2 - 2 * y1p - nu * y2 / D1 - mu * y2 / D2;
+        };
         const y0 = [0.994, 0, 0, -2.00158510637908252240537862224];
         const o = 17.0652165601579625588917206249;
-        let s = NewSolver(arenstorf, 4, {
+        let s = new odex_1.Solver(arenstorf, 4, {
             absoluteTolerance: 1e-13,
             relativeTolerance: 1e-13,
             maxSteps: 450,
+            rawFunction: true
         });
         const numOrbits = 3;
         let result = s.solve(0, y0, numOrbits * o, s.grid(o, (x, y) => {
@@ -433,7 +461,7 @@ describe('Odex', () => {
             [0.5697195275373672, 4.7002517839869755],
             [1.8598568626985814, 3.514424192705786],
         ];
-        let s = NewSolver(brusselator, 2, {
+        let s = new odex_1.Solver(brusselator, 2, {
             absoluteTolerance: 1e-8,
             relativeTolerance: 1e-8
         });
@@ -453,17 +481,30 @@ describe('Odex', () => {
                 (0, chai_1.expect)(Math.abs(v - value[1]) / v).to.be.lessThan(3e-7);
             });
         }
+        const g = new odex_1.Solver(brusselatorRaw, 2, {
+            absoluteTolerance: 1e-8,
+            relativeTolerance: 1e-8,
+            rawFunction: true
+        }).integrate(0, [1.5, 3]);
+        for (let t = 0; t <= 50; ++t) {
+            const value = g(t);
+            it(`agrees at grid point ${t} : ${value} (new interface, raw function)`, () => {
+                const [u, v] = expected[t];
+                (0, chai_1.expect)(Math.abs(u - value[0]) / u).to.be.lessThan(3e-7);
+                (0, chai_1.expect)(Math.abs(v - value[1]) / v).to.be.lessThan(3e-7);
+            });
+        }
     });
     describe('Configuration debugging', () => {
         it('throws when you use grid without denseOutput', () => {
-            let s = NewSolver((x, y) => y, 1, { denseOutput: false });
+            let s = new odex_1.Solver((x, y) => y, 1, { denseOutput: false });
             (0, chai_1.expect)(() => {
                 s.solve(0, [1], 1, s.grid(0.1, console.log));
             }).to.throw(/denseOutput/, 'expected recommendation to use denseOutput');
         });
     });
     describe('Solver object can be restarted', () => {
-        const s = NewSolver(trig, 2, { denseOutput: false });
+        const s = new odex_1.Solver(trig, 2, { denseOutput: false });
         for (let theta = 0.0; theta < 2 * Math.PI; theta += 0.2) {
             // Instead of using grid, wastefully restart the inegration for
             // each theta value
@@ -475,7 +516,7 @@ describe('Odex', () => {
         }
     });
     describe('cannot rewind integrator interface', () => {
-        const s = NewSolver(trig, 2);
+        const s = new odex_1.Solver(trig, 2);
         const f = s.integrate(0, [1, 0]);
         it('works at 5', () => {
             (0, chai_1.expect)(f(5)).to.be.ok;
@@ -495,7 +536,7 @@ describe('Odex', () => {
         });
     });
     describe('solution segment interface', () => {
-        const s = NewSolver(trig, 2);
+        const s = new odex_1.Solver(trig, 2);
         const gen = s.solutionSegments(0, [1, 0]);
         const segments = [];
         for (let i = 0; i < 5; ++i) {
@@ -516,7 +557,7 @@ describe('Odex', () => {
     describe('max step size honored', () => {
         const size = 0.001;
         const epsilon = 1e-15;
-        const s = NewSolver(trig, 2, { maxStepSize: size, initialStepSize: size });
+        const s = new odex_1.Solver(trig, 2, { maxStepSize: size, initialStepSize: size });
         const gen = s.solutionSegments(0, [1, 0]);
         for (let i = 0; i < 10; ++i) {
             let g = gen.next().value;
