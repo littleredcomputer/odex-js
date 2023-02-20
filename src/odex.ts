@@ -251,14 +251,10 @@ export class Solver {
     const components = this.options.denseComponents
     let t: number | undefined
     return (xOld: number, x: number, y: number[], interpolate: DenseOutputFunction) => {
-      t ?? (t = xOld)
+      t = t ?? xOld
       while (t <= x) {
-        let yf: number[] = []
-        for (let i of components) {
-          yf.push(interpolate(i, t))
-        }
-        let v = out(t, yf)
-        if (v === false) return false
+        const yf = Array.from(components, c => interpolate(c, t!))
+        if (out(t, yf) === false) return false
         t += dt
       }
     }
@@ -737,11 +733,7 @@ export class Solver {
         throw new Error('cannot use interpolation function after closing integrator')
       } else {
         while (!s.done && x > s.value.x1) s = segments.next()
-        const v = []
-        for (let c of components) {
-          v.push(s.value.f(c, x))
-        }
-        return v
+        return Array.from(components, c => s.value.f(c, x))
       }
     }
   }

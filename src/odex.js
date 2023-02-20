@@ -139,14 +139,10 @@ class Solver {
         const components = this.options.denseComponents;
         let t;
         return (xOld, x, y, interpolate) => {
-            t !== null && t !== void 0 ? t : (t = xOld);
+            t = t !== null && t !== void 0 ? t : xOld;
             while (t <= x) {
-                let yf = [];
-                for (let i of components) {
-                    yf.push(interpolate(i, t));
-                }
-                let v = out(t, yf);
-                if (v === false)
+                const yf = Array.from(components, c => interpolate(c, t));
+                if (out(t, yf) === false)
                     return false;
                 t += dt;
             }
@@ -651,11 +647,7 @@ class Solver {
             else {
                 while (!s.done && x > s.value.x1)
                     s = segments.next();
-                const v = [];
-                for (let c of components) {
-                    v.push(s.value.f(c, x));
-                }
-                return v;
+                return Array.from(components, c => s.value.f(c, x));
             }
         };
     }
