@@ -568,5 +568,34 @@ describe('Odex', () => {
             });
         }
     });
+    describe('solution segments have infinite lifespan', () => {
+        const s = new odex_1.Solver(trig, 2, { maxStepSize: 0.4 });
+        const gen = s.solutionSegments(0, [1, 0]);
+        const segments = [];
+        let xEnd = 0;
+        // Pull a bunch of segments into an array, close the integration, and
+        // then show that they continue to interpolate the function well within
+        // their range. This demonstrates that it's possible to glue together
+        // solution segments into a function that can interpolate over a range
+        // larger than the step size.
+        while (xEnd < Math.PI * 2) {
+            const segment = gen.next().value;
+            if (!segment)
+                throw ("expected solution segment");
+            segments.push(segment);
+            xEnd = segment.x1;
+        }
+        gen.return(undefined);
+        const N = 10;
+        for (const segment of segments) {
+            const dx = (segment.x1 - segment.x0) / N;
+            for (let i = 0; i <= N; ++i) {
+                //const s = segment
+                const x = segment.x0 + i * dx;
+                it('works for cos' + x, () => (0, chai_1.expect)(segment.f(0, x)).to.be.closeTo(Math.cos(x), 1e-6));
+                it('works for -sin ' + x, () => (0, chai_1.expect)(segment.f(1, x)).to.be.closeTo(-Math.sin(x), 1e-6));
+            }
+        }
+    });
 });
 //# sourceMappingURL=odexTest.js.map
