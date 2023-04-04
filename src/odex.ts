@@ -19,7 +19,7 @@
 
 /**
  * Function computing the value of Y' = F(x,Y). Y is vector valued. The value y
- * the funciton is supplied with belongs to the integrator and should not be modified.
+ * the function is supplied with belongs to the integrator and should not be modified.
  * The value returned belongs to you and will be copied by the integrator.
  */
 export type Derivative = (x: number, y: number[], yp: number[]) => number[] | void
@@ -68,6 +68,10 @@ type FinalStepOutcome = {
   accept: boolean
   hoptde?: number
   densef?: DenseOutputFunction
+}
+
+enum STATE {
+  Start, BasicIntegrationStep, ConvergenceStep, HopeForConvergence, Accept, Reject
 }
 
 // A solution segment contains a function y defined on the interval [x0, x1]
@@ -120,7 +124,7 @@ export class Solver {
   private errfac: number[]             // error factors
   private aTol: number[]               // absolute error tolerance (for each Y component)
   private rTol: number[]               // relative error tolerance (for each Y component)
-  private posneg: number               // sign of integration direction (±1)
+  private posNeg: number               // sign of integration direction (±1)
 
 
   private fSafe: number[][]
@@ -227,7 +231,7 @@ export class Solver {
     this.ap = Array(31)
     this.t0i = Array(this.n)
 
-    this.posneg = 1
+    this.posNeg = 1
   }
 
   /**
@@ -253,7 +257,8 @@ export class Solver {
     return (xOld: number, x: number, y: number[], interpolate: DenseOutputFunction) => {
       t = t ?? xOld
       while (t <= x) {
-        const yf = Array.from(components, c => interpolate(c, t!))
+        const yf = new Array(components.length)
+        for (let i = 0; i < components.length; ++i) yf[i] = interpolate(components[i], t!)
         if (out(t, yf) === false) return false
         t += dt
       }
@@ -404,7 +409,7 @@ export class Solver {
 
   /**
    * Computes the jth line of the extrapolation table (0-based) and
-   * provides an estimation of the optional stepsize. Returns
+   * provides an estimation of the optional step size. Returns
    * false if the Fortran condition "ATOV" is true. Not quite
    * sure what that stands for as of this writing.
    * @param j
@@ -414,7 +419,7 @@ export class Solver {
    * @param yprime
    * @returns
    */
-  private midex(j: number, h: number, x: number, y: number[], yprime: number[]): boolean {
+  private midEx(j: number, h: number, x: number, y: number[], yprime: number[]): boolean {
     const hj = h / this.nj[j]
     // Euler starting step
     for (let i = 0; i < this.n; ++i) {
@@ -505,7 +510,7 @@ export class Solver {
 
   /**
    * Considers accepting the current integration step, and, if dense output is
-   * requested, prepares the data that will be used by the iterpolating function.
+   * requested, prepares the data that will be used by the interpolating function.
    * If denseOutputErrorEstimator is also switched on, information gathered
    * while preparing the dense output data may be used to tardily decide that
    * the step should be rejected after all.
@@ -646,7 +651,7 @@ export class Solver {
     if (reject) {
       return {
         k: Math.min(kopt, kc),
-        h: this.posneg * Math.min(Math.abs(h), Math.abs(this.hh[k - 1]))
+        h: this.posNeg * Math.min(Math.abs(h), Math.abs(this.hh[k - 1]))
       }
     }
     let r = { h: 0, k: 0 }
@@ -659,7 +664,7 @@ export class Solver {
         r.h = this.hh[kc - 1] * this.a[kopt - 1] / this.a[kc - 1]
       }
     }
-    r.h = this.posneg * Math.abs(r.h)
+    r.h = this.posNeg * Math.abs(r.h)
     r.k = kopt
     return r
   }
@@ -716,13 +721,13 @@ export class Solver {
    * @return interpolation function valid on a monotonically increasing
    *     argument sequence
    */
-  public integrate(x0: number, y0: number[]): (x?: number) => number[] {
+  public integrate(x0: number, y0: number[]): (x?: number, ys?: number[]) => number[] {
     if (!this.options.denseOutput) throw new Error('integrate interface requires denseOutput')
     const components = this.options.denseComponents
     const segments = this.solutionSegments(x0, y0)
     let s: IteratorResult<SolutionSegment> = segments.next()
     let closed: boolean = false
-    return (x?: number): number[] => {
+    return (x?: number, v?:number[]): number[] => {
       if (x === undefined) {
         segments.next(false)
         closed = true
@@ -733,7 +738,14 @@ export class Solver {
         throw new Error('cannot use interpolation function after closing integrator')
       } else {
         while (!s.done && x > s.value.x1) s = segments.next()
-        return Array.from(components, c => s.value.f(c, x))
+        if (v !== undefined) {
+          for (let i = 0; i < components.length; ++i) v[i] = s.value.f(components[i], x);
+          return v
+        } else {
+          let w = Array(components.length);
+          for (let i = 0; i < components.length; ++i) w[i] = s.value.f(components[i], x);
+          return w;
+        }
       }
     }
   }
@@ -765,7 +777,7 @@ export class Solver {
     }
 
     this.nStep = this.nAccept = this.nReject = 0
-    this.posneg = xEnd ? (xEnd - x >= 0 ? 1 : -1) : 1
+    this.posNeg = xEnd ? (xEnd - x >= 0 ? 1 : -1) : 1
 
     // Initial Scaling
     for (let i = 0; i < this.n; ++i) {
@@ -775,7 +787,7 @@ export class Solver {
     // Initial preparations
     let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)))
     let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4)
-    h = this.posneg * Math.min(h, this.hMax, xEnd ? Math.abs(xEnd - x) / 2 : Infinity)
+    h = this.posNeg * Math.min(h, this.hMax, xEnd ? Math.abs(xEnd - x) / 2 : Infinity)
     let xOld = x
     this.iPt = 0 // TODO: fix
 
@@ -796,14 +808,11 @@ export class Solver {
 
     this.err = 0
     this.errOld = 1e10
-    let hoptde = this.posneg * this.hMax
+    let hoptde = this.posNeg * this.hMax
     let reject = false
     let last = false
     let kc = 0
 
-    enum STATE {
-      Start, BasicIntegrationStep, ConvergenceStep, HopeForConvergence, Accept, Reject
-    }
     let state: STATE = STATE.Start
 
     loop: while (true) {
@@ -813,13 +822,13 @@ export class Solver {
           if (xEnd !== undefined) {
             // Is xEnd reached in the next step?
             if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * this.options.uRound) break loop
-            h = this.posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde))
-            if ((x + 1.01 * h - xEnd) * this.posneg > 0) {
+            h = this.posNeg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde))
+            if ((x + 1.01 * h - xEnd) * this.posNeg > 0) {
               h = xEnd - x
               last = true
             }
           } else {
-            h = this.posneg * Math.min(Math.abs(h), this.hMax, Math.abs(hoptde))
+            h = this.posNeg * Math.min(Math.abs(h), this.hMax, Math.abs(hoptde))
           }
           if (this.nStep === 0 || !this.options.denseOutput) {
             this.f(x, y, this.dz)
@@ -831,7 +840,7 @@ export class Solver {
             ++this.nStep
             for (let j = 1; j <= k; ++j) {
               kc = j
-              if (!this.midex(j - 1, h, x, y, this.dz)) {
+              if (!this.midEx(j - 1, h, x, y, this.dz)) {
                 h *= this.options.stepSizeReductionFactor
                 reject = true
                 continue loop
@@ -855,7 +864,7 @@ export class Solver {
           }
           kc = k - 1
           for (let j = 0; j < kc; ++j) {
-            if (!this.midex(j, h, x, y, this.dz)) {
+            if (!this.midEx(j, h, x, y, this.dz)) {
               h *= this.options.stepSizeReductionFactor
               reject = true
               state = STATE.Start
@@ -875,7 +884,7 @@ export class Solver {
           continue
 
         case STATE.ConvergenceStep:  // label 50
-          if (!this.midex(k - 1, h, x, y, this.dz)) {
+          if (!this.midEx(k - 1, h, x, y, this.dz)) {
             h *= this.options.stepSizeReductionFactor
             reject = true
             state = STATE.Start
@@ -896,7 +905,7 @@ export class Solver {
             continue
           }
           kc = k + 1
-          if (!this.midex(kc - 1, h, x, y, this.dz)) {
+          if (!this.midEx(kc - 1, h, x, y, this.dz)) {
             h *= this.options.stepSizeReductionFactor
             reject = true
             state = STATE.Start
@@ -936,7 +945,7 @@ export class Solver {
           k = Math.min(k, kc, this.options.maxExtrapolationColumns - 1)
           if (k > 2 && this.w[k - 1] < this.w[k] * this.options.stepSizeFac3) k -= 1
           ++this.nReject
-          h = this.posneg * this.hh[k - 1]
+          h = this.posNeg * this.hh[k - 1]
           reject = true
           state = STATE.BasicIntegrationStep
       }

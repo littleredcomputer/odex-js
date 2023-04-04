@@ -187,11 +187,19 @@ describe('Odex', () => {
             yp[1] = -y[0];
         }, 2, { absoluteTolerance: 1e-6, rawFunction: true });
         let f = s.integrate(0, [1, 0]);
+        const v = new Array(2);
         for (let x = 0; x < 2 * Math.PI; x += 0.1) {
             const y = f(x);
+            const v1 = f(x, v);
+            it('returns same array as was provided when BYO', () => (0, chai_1.expect)(v1).to.equal(v));
+            const w = v.slice();
             it(`cos;-sin(${x}) ~= ${y} ok`, () => {
                 (0, chai_1.expect)(y[0]).to.be.closeTo(Math.cos(x), 1e-5);
                 (0, chai_1.expect)(y[1]).to.be.closeTo(-Math.sin(x), 1e-5);
+            });
+            it('fills BYO storage with correct values', () => {
+                (0, chai_1.expect)(w[0]).to.be.closeTo(Math.cos(x), 1e-5);
+                (0, chai_1.expect)(w[1]).to.be.closeTo(-Math.sin(x), 1e-5);
             });
         }
         f();
@@ -403,9 +411,9 @@ describe('Odex', () => {
         //
         // brusselator[x_, {y1_, y2_}] = {1 + y1^2 y2 - 4 y1, 3 y1 - y1^2 y2};
         // Module[
-        //  {b = brusselator[x, {u[x], v[x]}], eqns, sol},
-        //  eqns = {u'[x] == b[[1]], v'[x] == b[[2]], u[0] == 1.5, v[0] == 3};
-        //  sol = NDSolve[eqns, {u, v}, {x, 0, 100}, PrecisionGoal -> 10, AccuracyGoal -> 10];
+        //  {b = brusselator[x, {u[x], v[x]}], eqs, sol},
+        //  eqs = {u'[x] == b[[1]], v'[x] == b[[2]], u[0] == 1.5, v[0] == 3};
+        //  sol = NDSolve[eqs, {u, v}, {x, 0, 100}, PrecisionGoal -> 10, AccuracyGoal -> 10];
         //  Table[{u[x], v[x]} /. sol[[1]], {x, 0, 50}]
         // ] // TableForm
         let expected = [
@@ -506,7 +514,7 @@ describe('Odex', () => {
     describe('Solver object can be restarted', () => {
         const s = new odex_1.Solver(trig, 2, { denseOutput: false });
         for (let theta = 0.0; theta < 2 * Math.PI; theta += 0.2) {
-            // Instead of using grid, wastefully restart the inegration for
+            // Instead of using grid, wastefully restart the integration for
             // each theta value
             it('works at grid point ' + theta, () => {
                 let value = s.solve(0, [1, 0], theta).y;

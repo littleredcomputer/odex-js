@@ -80,7 +80,7 @@ new odex.Solver(yprime, 1).solve(0, [1], 2, (x0, x1, y1, f) => console.log(x0,x1
 ```
 If you prefer the callback approach, you can use the convenience function
 `grid` to arrange for the output to come at a fixed interval rather than
-at the varying integration stepsize:
+at the varying integration step size:
 ```js
 s = new odex.Solver(yprime, 1)
 s.solve(0, [1], 2, s.grid(0.2, (x, y) => console.log(x,y)))
@@ -163,6 +163,19 @@ f(6)
 To see more of this system of equations in action, you can visit a
 [demo page][lvdemo] which allows you to vary the initial conditions
 with the mouse.
+
+##### Bring your own return-value storage
+
+You can call `f` with two arguments. If you do, the second is taken to
+be an array to fill with the function values, thus avoiding an allocation:
+
+```js
+s = new odex.Solver(LotkaVolterra(2/3, 4/3, 1, 1), 2);
+f = s.integrate(0, [1, 1])
+v = new Array(2)
+f(6, v)
+v
+// [ 1.654269726022535, 0.325291085566411 ]
 
 ##### A second-order equation
 

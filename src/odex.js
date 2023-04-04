@@ -19,6 +19,15 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Solver = void 0;
+var STATE;
+(function (STATE) {
+    STATE[STATE["Start"] = 0] = "Start";
+    STATE[STATE["BasicIntegrationStep"] = 1] = "BasicIntegrationStep";
+    STATE[STATE["ConvergenceStep"] = 2] = "ConvergenceStep";
+    STATE[STATE["HopeForConvergence"] = 3] = "HopeForConvergence";
+    STATE[STATE["Accept"] = 4] = "Accept";
+    STATE[STATE["Reject"] = 5] = "Reject";
+})(STATE || (STATE = {}));
 class Solver {
     /**
      * Construct an integrator for the differential system f (which is a function
@@ -115,7 +124,7 @@ class Solver {
         this.dens = Array(ncom);
         this.ap = Array(31);
         this.t0i = Array(this.n);
-        this.posneg = 1;
+        this.posNeg = 1;
     }
     /**
      * Grid is supplied as a ready-made integration callback that manages
@@ -141,7 +150,9 @@ class Solver {
         return (xOld, x, y, interpolate) => {
             t = t !== null && t !== void 0 ? t : xOld;
             while (t <= x) {
-                const yf = Array.from(components, c => interpolate(c, t));
+                const yf = new Array(components.length);
+                for (let i = 0; i < components.length; ++i)
+                    yf[i] = interpolate(components[i], t);
                 if (out(t, yf) === false)
                     return false;
                 t += dt;
@@ -297,7 +308,7 @@ class Solver {
     }
     /**
      * Computes the jth line of the extrapolation table (0-based) and
-     * provides an estimation of the optional stepsize. Returns
+     * provides an estimation of the optional step size. Returns
      * false if the Fortran condition "ATOV" is true. Not quite
      * sure what that stands for as of this writing.
      * @param j
@@ -307,7 +318,7 @@ class Solver {
      * @param yprime
      * @returns
      */
-    midex(j, h, x, y, yprime) {
+    midEx(j, h, x, y, yprime) {
         const hj = h / this.nj[j];
         // Euler starting step
         for (let i = 0; i < this.n; ++i) {
@@ -397,7 +408,7 @@ class Solver {
     }
     /**
      * Considers accepting the current integration step, and, if dense output is
-     * requested, prepares the data that will be used by the iterpolating function.
+     * requested, prepares the data that will be used by the interpolating function.
      * If denseOutputErrorEstimator is also switched on, information gathered
      * while preparing the dense output data may be used to tardily decide that
      * the step should be rejected after all.
@@ -554,7 +565,7 @@ class Solver {
         if (reject) {
             return {
                 k: Math.min(kopt, kc),
-                h: this.posneg * Math.min(Math.abs(h), Math.abs(this.hh[k - 1]))
+                h: this.posNeg * Math.min(Math.abs(h), Math.abs(this.hh[k - 1]))
             };
         }
         let r = { h: 0, k: 0 };
@@ -569,7 +580,7 @@ class Solver {
                 r.h = this.hh[kc - 1] * this.a[kopt - 1] / this.a[kc - 1];
             }
         }
-        r.h = this.posneg * Math.abs(r.h);
+        r.h = this.posNeg * Math.abs(r.h);
         r.k = kopt;
         return r;
     }
@@ -632,7 +643,7 @@ class Solver {
         const segments = this.solutionSegments(x0, y0);
         let s = segments.next();
         let closed = false;
-        return (x) => {
+        return (x, v) => {
             if (x === undefined) {
                 segments.next(false);
                 closed = true;
@@ -647,7 +658,17 @@ class Solver {
             else {
                 while (!s.done && x > s.value.x1)
                     s = segments.next();
-                return Array.from(components, c => s.value.f(c, x));
+                if (v !== undefined) {
+                    for (let i = 0; i < components.length; ++i)
+                        v[i] = s.value.f(components[i], x);
+                    return v;
+                }
+                else {
+                    let w = Array(components.length);
+                    for (let i = 0; i < components.length; ++i)
+                        w[i] = s.value.f(components[i], x);
+                    return w;
+                }
             }
         };
     }
@@ -679,7 +700,7 @@ class Solver {
             this.hMax = 1;
         }
         this.nStep = this.nAccept = this.nReject = 0;
-        this.posneg = xEnd ? (xEnd - x >= 0 ? 1 : -1) : 1;
+        this.posNeg = xEnd ? (xEnd - x >= 0 ? 1 : -1) : 1;
         // Initial Scaling
         for (let i = 0; i < this.n; ++i) {
             this.scal[i] = this.aTol[i] + this.rTol[i] + Math.abs(y[i]);
@@ -687,7 +708,7 @@ class Solver {
         // Initial preparations
         let k = Math.max(2, Math.min(this.options.maxExtrapolationColumns - 1, Math.floor(-Math.log10(this.rTol[0] + 1e-40) * 0.6 + 1.5)));
         let h = Math.max(Math.abs(this.options.initialStepSize), 1e-4);
-        h = this.posneg * Math.min(h, this.hMax, xEnd ? Math.abs(xEnd - x) / 2 : Infinity);
+        h = this.posNeg * Math.min(h, this.hMax, xEnd ? Math.abs(xEnd - x) / 2 : Infinity);
         let xOld = x;
         this.iPt = 0; // TODO: fix
         if (this.options.denseOutput) {
@@ -708,19 +729,10 @@ class Solver {
         }
         this.err = 0;
         this.errOld = 1e10;
-        let hoptde = this.posneg * this.hMax;
+        let hoptde = this.posNeg * this.hMax;
         let reject = false;
         let last = false;
         let kc = 0;
-        let STATE;
-        (function (STATE) {
-            STATE[STATE["Start"] = 0] = "Start";
-            STATE[STATE["BasicIntegrationStep"] = 1] = "BasicIntegrationStep";
-            STATE[STATE["ConvergenceStep"] = 2] = "ConvergenceStep";
-            STATE[STATE["HopeForConvergence"] = 3] = "HopeForConvergence";
-            STATE[STATE["Accept"] = 4] = "Accept";
-            STATE[STATE["Reject"] = 5] = "Reject";
-        })(STATE || (STATE = {}));
         let state = STATE.Start;
         loop: while (true) {
             this.options.debug && console.log(`#${this.nStep} ${STATE[state]} [${xOld},${x}] h=${h} k=${k}`);
@@ -730,14 +742,14 @@ class Solver {
                         // Is xEnd reached in the next step?
                         if (0.1 * Math.abs(xEnd - x) <= Math.abs(x) * this.options.uRound)
                             break loop;
-                        h = this.posneg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde));
-                        if ((x + 1.01 * h - xEnd) * this.posneg > 0) {
+                        h = this.posNeg * Math.min(Math.abs(h), Math.abs(xEnd - x), this.hMax, Math.abs(hoptde));
+                        if ((x + 1.01 * h - xEnd) * this.posNeg > 0) {
                             h = xEnd - x;
                             last = true;
                         }
                     }
                     else {
-                        h = this.posneg * Math.min(Math.abs(h), this.hMax, Math.abs(hoptde));
+                        h = this.posNeg * Math.min(Math.abs(h), this.hMax, Math.abs(hoptde));
                     }
                     if (this.nStep === 0 || !this.options.denseOutput) {
                         this.f(x, y, this.dz);
@@ -749,7 +761,7 @@ class Solver {
                         ++this.nStep;
                         for (let j = 1; j <= k; ++j) {
                             kc = j;
-                            if (!this.midex(j - 1, h, x, y, this.dz)) {
+                            if (!this.midEx(j - 1, h, x, y, this.dz)) {
                                 h *= this.options.stepSizeReductionFactor;
                                 reject = true;
                                 continue loop;
@@ -772,7 +784,7 @@ class Solver {
                     }
                     kc = k - 1;
                     for (let j = 0; j < kc; ++j) {
-                        if (!this.midex(j, h, x, y, this.dz)) {
+                        if (!this.midEx(j, h, x, y, this.dz)) {
                             h *= this.options.stepSizeReductionFactor;
                             reject = true;
                             state = STATE.Start;
@@ -795,7 +807,7 @@ class Solver {
                     }
                     continue;
                 case STATE.ConvergenceStep: // label 50
-                    if (!this.midex(k - 1, h, x, y, this.dz)) {
+                    if (!this.midEx(k - 1, h, x, y, this.dz)) {
                         h *= this.options.stepSizeReductionFactor;
                         reject = true;
                         state = STATE.Start;
@@ -815,7 +827,7 @@ class Solver {
                         continue;
                     }
                     kc = k + 1;
-                    if (!this.midex(kc - 1, h, x, y, this.dz)) {
+                    if (!this.midEx(kc - 1, h, x, y, this.dz)) {
                         h *= this.options.stepSizeReductionFactor;
                         reject = true;
                         state = STATE.Start;
@@ -856,7 +868,7 @@ class Solver {
                     if (k > 2 && this.w[k - 1] < this.w[k] * this.options.stepSizeFac3)
                         k -= 1;
                     ++this.nReject;
-                    h = this.posneg * this.hh[k - 1];
+                    h = this.posNeg * this.hh[k - 1];
                     reject = true;
                     state = STATE.BasicIntegrationStep;
             }
