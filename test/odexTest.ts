@@ -619,4 +619,81 @@ describe('Odex', () => {
       }
     }
   })
+  describe('exact agreement with Fortran ODEX', () => {
+    // This is from running DR_ODEX.F instrumented to print step outputs.
+    // The values are h, x0, y0, y1, so we can see that our ODEX makes
+    // the same stepsize choices. The ODEX.F values are printed with the
+    // Fortran format D18.10, then s/D/e/, etc.
+    let odexFortranData = [
+      [0.1000000000e-03, 0.1000000000e-03,  0.9999999500e+00, -0.9999999834e-03],
+      [0.7777399830e-03, 0.8777399830e-03,  0.9999961479e+00, -0.8777388708e-02],
+      [0.6048794812e-02, 0.6926534795e-02,  0.9997601244e+00, -0.6926038487e-01],
+      [0.4704389575e-01, 0.5397043054e-01,  0.9854485149e+00, -0.5391931636e+00],
+      [0.1786724607e+00, 0.2326428913e+00,  0.7070426387e+00, -0.2883494795e+01],
+      [0.1177064058e+00, 0.3503492971e+00,  0.1316839002e+00, -0.8017395288e+01],
+      [0.1177064058e+00, 0.4680557029e+00, -0.1387744593e+01, -0.1364587834e+02],
+      [0.6011448215e-01, 0.5281701851e+00, -0.1900333706e+01, -0.3785657018e+01],
+      [0.6011448215e-01, 0.5882846672e+00, -0.1989557579e+01, -0.1222703723e+00],
+      [0.1033496638e+00, 0.6916343310e+00, -0.1945340138e+01,  0.6475908017e+00],
+      [0.1084802466e+00, 0.8001145776e+00, -0.1869964786e+01,  0.7281476598e+00],
+      [0.1104546077e+00, 0.9105691853e+00, -0.1786305217e+01,  0.7881546058e+00],
+      [0.5182060019e+00, 0.1428775187e+01, -0.1236337658e+01,  0.1588340759e+01],
+      [0.1420211395e+00, 0.1570796327e+01, -0.9531794521e+00,  0.2578347734e+01],
+    ]
+    function maxDiff(observed: number[][], expected: number[][]): number {
+      // Find the maximum absolute difference between the two arrays
+      expect(observed.length).to.equal(expected.length)
+      let maxDiff = -Infinity
+      for (let i = 0; i < observed.length; ++i) {
+        for (let j = 0; j < 4; ++j) {
+          const o = observed[i][j]
+          const e = expected[i][j]
+          maxDiff = Math.max(maxDiff, Math.abs((o-e)/e))
+        }
+      }
+      return maxDiff
+    }
+    it('agrees (dense output error estimation OFF)', () => {
+      const results: number[][] = []
+      const s = new Solver(vanDerPol(0.1), 2, {
+        relativeTolerance: 1e-5,
+        absoluteTolerance: 1e-5,
+        denseOutputErrorEstimator: false
+      })
+        s.solve(0, [1, 0], Math.PI/2, (xOld, x, ys) => {
+        results.push([x-xOld, x, ys[0], ys[1]])
+      })
+      expect(maxDiff(results, odexFortranData)).to.be.lessThan(1e-9)
+    })
+    // Same experiment but this time with dense output error estimation turned on.
+    let odexFortranDataDE = [
+      [0.1000000000e-03, 0.1000000000e-03,  0.9999999500e+00, -0.9999999834e-03],
+      [0.7777399830e-03, 0.8777399830e-03,  0.9999961479e+00, -0.8777388708e-02],
+      [0.6048794812e-02, 0.6926534795e-02,  0.9997601244e+00, -0.6926038487e-01],
+      [0.4704389575e-01, 0.5397043054e-01,  0.9854485149e+00, -0.5391931636e+00],
+      [0.1786724607e+00, 0.2326428913e+00,  0.7070426387e+00, -0.2883494795e+01],
+      [0.1429915340e+00, 0.3756344252e+00, -0.9899544983e-01, -0.1031870344e+02],
+      [0.1041850973e+00, 0.4798195226e+00, -0.1537597275e+01, -0.1176351018e+02],
+      [0.9062731252e-01, 0.5704468351e+00, -0.1982891160e+01, -0.6731964365e+00],
+      [0.1134040984e+00, 0.6838509335e+00, -0.1950335735e+01,  0.6355419995e+00],
+      [0.1145742302e+00, 0.7984251637e+00, -0.1871193707e+01,  0.7272398072e+00],
+      [0.7853216397e-01, 0.8769573277e+00, -0.1812469130e+01,  0.7688208361e+00],
+      [0.1539672098e+00, 0.1030924537e+01, -0.1686709781e+01,  0.8709850560e+00],
+      [0.1786057781e+00, 0.1209530316e+01, -0.1515904701e+01,  0.1060092929e+01],
+      [0.1207117656e+00, 0.1330242081e+01, -0.1375875593e+01,  0.1278645680e+01],
+      [0.2243310904e+00, 0.1554573172e+01, -0.9943618701e+00,  0.2392076508e+01],
+      [0.1622315524e-01, 0.1570796327e+01, -0.9541428345e+00,  0.2570560177e+01],
+    ]
+    it('agrees (desne output error estimation ON)', () => {
+      const results: number[][] = []
+      const s = new Solver(vanDerPol(0.1), 2, {
+        relativeTolerance: 1e-5,
+        absoluteTolerance: 1e-5,
+      })
+      s.solve(0, [1, 0], Math.PI/2, (xOld, x, ys) => {
+        results.push([x-xOld, x, ys[0], ys[1]])
+      })
+      expect(maxDiff(results, odexFortranDataDE)).to.be.lessThan(1e-9)
+    })
+  })
 })
